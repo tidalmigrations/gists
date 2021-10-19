@@ -1,0 +1,65 @@
+# The behavior of RuboCop can be controlled via the .rubocop.yml
+# configuration file. It makes it possible to enable/disable
+# certain cops (checks) and to alter their behavior if they accept
+# any parameters. The file can be placed either in your home
+# directory or in some project directory.
+#
+# RuboCop will start looking for the configuration file in the directory
+# where the inspected file is and continue its way up to the root directory.
+#
+# See https://github.com/rubocop-hq/rubocop/blob/master/manual/configuration.md
+
+# This enables any newly added cops to Rubocop. They add new good ones, so this
+# automatically adopts them. If any of these new ones causes an issue, we can disable or
+# change the default for that spcific cop. Or if this setting causes the linting to be too
+# volatile, with rules always being added or changed, we can disable this. More info here:
+# https://docs.rubocop.org/rubocop/versioning.html
+AllCops:
+  Exclude:
+    - "scripts/validations/**/*.rb"
+    - "scripts/transformations/**/*.rb"
+    - "db/schema.rb"
+  NewCops: enable
+
+# Included to enforce rails conventions
+require: rubocop-rails
+
+# I think in terms of enforcing this, it is a bit early for us right now
+# When the use, need, time-to-add, and priority is there for these docs
+# I think we should add this back
+Style/Documentation:
+  Enabled: false
+
+# From what I can see this isn't critical anymore
+# https://github.com/rubocop-hq/rubocop/issues/7197
+# Also, we don't do it anywhere yet either, so it seems not useful at the moment
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+# I prefer this one for not forgetting what is private or not
+Layout/IndentationConsistency:
+  EnforcedStyle: indented_internal_methods
+
+# We prefer not to use this style
+# Personal habit and preference
+Style/SymbolArray:
+  Enabled: false
+
+# We prefer not to use this style.
+# One character for strings is easier to remember,
+# avoids needing to switch when interpolation needs change.
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+
+# I find this style easiest to read,
+# open to other peoples preferences too, if its not this one.
+Layout/HashAlignment:
+  EnforcedColonStyle: table
+
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*.rb"
