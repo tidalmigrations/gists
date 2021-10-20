@@ -166,7 +166,6 @@ module AzureMigrate
     }"
     assessments = basic_request(
       path:         path,
-      body:         nil,
       query_params: { "api-version": version },
       headers:      {
         "Authorization" => "Bearer #{get_token}"
@@ -240,7 +239,6 @@ contact us at support@tidalmigrations.com"
       while next_link != nil do
         path = "#{next_link}"
         next_response = basic_request(path:         path,
-                                      body:         nil,
                                       query_params: query_params,
                                       headers:      { "Authorization" => "Bearer #{get_token}" })
         loop_response = response_handler(api_name: "Azure Migrate", response: next_response)
