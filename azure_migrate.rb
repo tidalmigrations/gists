@@ -250,7 +250,6 @@ resource group\n#{subscription}: #{resource_group} \n\n"
         responses.push(*parsed_paylod)
         next_link = loop_response['nextLink']
       end
-      File.write('./project_data.json', ({ servers: responses }).to_json)
       puts "#{({ servers: responses }).to_json}"
     end
 
