@@ -124,14 +124,7 @@ module AzureMigrate
   include HttpUtil
   include JSON
 
-  # TODO
-  # error handling
-
   def pull_from_azure_migrate
-    machines
-  end
-
-  def machines
     if ENV["AZ_MIGRATE_SUBSCRIPTION"] == nil?
       raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable."
     end
@@ -179,16 +172,13 @@ module AzureMigrate
         "Authorization" => "Bearer #{get_token}"
       }
     )
-    response = response_handler(api_name: "API", response: assessments)
+    response = response_handler(api_name: "Azure Migrate", response: assessments)
     assessment_projects = []
     response["value"].each do |project|
       assessment_projects.push(project["name"])
     end
-    puts "Listed assessment projects in in the follow subscription: resource group\n#{
-      subscription
-    }: #{
-      resource_group
-    } \n\n"
+    puts "Listed assessment projects in in the follow subscription:\
+resource group\n#{subscription}: #{resource_group} \n\n"
     pp assessment_projects
   end
 
@@ -238,7 +228,7 @@ module AzureMigrate
                               query_params: query_params,
                               headers:      { "Authorization" => "Bearer #{get_token}" })
 
-      first_response = response_handler(api_name: "API", response: response)
+      first_response = response_handler(api_name: "Azure Migrate", response: response)
       next_link = first_response['nextLink']
       parsed_values = []
       first_response["value"].each do |server_value|
@@ -252,7 +242,7 @@ module AzureMigrate
                                       body:         nil,
                                       query_params: query_params,
                                       headers:      { "Authorization" => "Bearer #{get_token}" })
-        loop_response = response_handler(api_name: "API2", response: next_response)
+        loop_response = response_handler(api_name: "Azure Migrate", response: next_response)
         parsed_paylod = []
         loop_response["value"].each do |payload_server_value|
           parsed_paylod.push(parse_result(payload_server_value))
@@ -273,16 +263,14 @@ module AzureMigrate
     end
 end
 
-class MigrateExample
+class Migrate
   extend AzureMigrate
 
-  inputs = ARGV
-
-  case inputs[0]
+  case ARGV[0]
   when nil
-    pull_from_azure_migrate()
+    pull_from_azure_migrate
   when "-p"
-    list_assessment_projects()
+    list_assessment_projects
   when "-h"
     puts <<~EOT
       Azure Migrate Assessment Project Server Export Menu:
