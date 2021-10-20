@@ -4,41 +4,6 @@ require 'net/http'
 require 'json'
 
 module HttpUtil
-  def make_json_request(
-    method:, path:,
-    query_params: {},
-    body: nil,
-    headers: {},
-    ssl: true,
-    timeout: 60,
-    basic_auth: []
-  )
-    body = body.to_json if body
-    make_request(method:       method,
-                 path:         path,
-                 query_params: query_params,
-                 body:         body,
-                 ssl:          ssl,
-                 headers:      json_headers.merge(headers),
-                 timeout:      timeout,
-                 basic_auth:   basic_auth)
-  end
-
-  def json_headers
-    { "Accept" => "application/json",
-      "Content-Type" => "application/json" }
-  end
-
-  def make_file_request(path:, query_params: {}, form:, headers: {}, ssl: true, timeout: 60)
-    make_request(method:       :post,
-                 path:         path,
-                 query_params: query_params,
-                 form:         form,
-                 timeout:      timeout,
-                 ssl:          ssl,
-                 headers:      headers)
-  end
-
   def basic_request(path:, query_params: {}, headers: {})
     _, http = get_uri_http(
       path:         path,
