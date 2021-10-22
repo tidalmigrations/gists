@@ -122,13 +122,8 @@ module AzureMigrate
     resource_group = ENV["AZ_MIGRATE_RG"]
     version = "2020-05-01-preview"
 
-    path = "https://management.azure.com/subscriptions/#{
-      subscription
-    }/resourceGroups/#{
-      resource_group
-    }/providers/Microsoft.Migrate/assessmentProjects?#{
-      version
-    }"
+    path = "https://management.azure.com/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/\
+Microsoft.Migrate/assessmentProjects?api-version=#{version}"
     assessments = basic_request(
       path:         path,
       query_params: { "api-version": version },
