@@ -46,7 +46,6 @@ module HttpUtil
   end
 
   def response_handler(api_name: "", response:, return_body: true, return_header: nil, return_response: false)
-    puts response.inspect
     if %w[200 202 204].include? response.code
       if return_header
         response[return_header]
@@ -131,7 +130,7 @@ module AzureMigrate
         "Authorization" => "Bearer #{get_token}"
       }
     )
-    response = response_handler(api_name: "Azure Migrate Demo", response: assessments)
+    response = response_handler(api_name: "Azure Migrate", response: assessments)
     assessment_projects = []
     response["value"].each do |project|
       assessment_projects.push(project["name"])
