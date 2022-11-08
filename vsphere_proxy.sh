@@ -12,8 +12,8 @@ tidal get vsphere > vsphere_data.json
 # change https://proxy_url.com to the URL, including user/pass if needed for your proxy server.
 export https_proxy=https://proxy_url.com
 
-# sync vsphere data with tidal
-tidal sync servers vsphere_data.json
+# transform vsphere data and sync data with Tidal
+cat vsphere_data.json | ./scripts/vsphere_transform.rb | tidal sync servers
 
 #unset proxy config in order to leave config as it was before running
 export https_proxy=""
