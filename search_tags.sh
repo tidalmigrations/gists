@@ -2,8 +2,8 @@
 
 # TO USE - you must set:
 
-#  SUBDOMAIN - to your Tidal Migrations account from get.tidalmg.com
-#  API_TOKEN - to your Tidal Migrations account from guides.tidalmg.com/authenticate.html
+#  SUBDOMAIN - to your Tidal account from get.tidalmg.com
+#  API_TOKEN - to your Tidal account from guides.tidalmg.com/authenticate.html
 
 SUBDOMAIN=SET_THIS
 API_TOKEN=SET_THIS

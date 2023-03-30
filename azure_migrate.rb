@@ -174,7 +174,7 @@ resource group\n#{subscription}: #{resource_group} \n\n"
       response
     else
       puts "Experienced an error when trying to parse the result from the Azure Migrate API. If the error persists, \
-contact us at support@tidalmigrations.com"
+contact us at support@tidalcloud.com"
       raise StandardError, "Error interacting with Azure API"
     end
   end
