@@ -24,7 +24,7 @@ An example command would be:
 `cat ./data/apps.csv | ./scripts/csv_transform.rb | tidal sync apps`
 
 This reads the data file, transforms it via script, and sends the data to the
-[Tidal Migrations Platform](https://tidalmigrations.com/product).
+[Tidal Platform](https://tidalcloud.com).
 
 You could also do:
 
@@ -45,4 +45,4 @@ If you have any issues with the data or code you can create an issue here in
 the repository.
 
 If your issue isn't related directly to the code or data; feel free to
-email us at info@tidalmigrations.com.
+email us at info@tidalcloud.com.

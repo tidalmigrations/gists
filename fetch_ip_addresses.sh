@@ -2,8 +2,8 @@
 
 # TO USE - you must set:
 
-#  SUBDOMAIN - To your Tidal Migrations account from get.tidalmg.com
-#  API_TOKEN - To your Tidal Migrations account from guides.tidalmg.com/authenticate.html
+#  SUBDOMAIN - To your Tidal account from get.tidalmg.com
+#  API_TOKEN - To your Tidal account from guides.tidalmg.com/authenticate.html
 #  TAG_ID    - Set this to the tag you want to use, that is returned from the `search_tags.sh` script
 
 SUBDOMAIN=SET_THIS

@@ -1,7 +1,7 @@
-# Tidal Migrations Gists
+# Tidal Gists
 
-This repository contains a collection of scripts for working with Tidal Migrations API. You can find more information about using Tidal Migrations [in the guides](https://guides.tidalmg.com).
+This repository contains a collection of scripts for working with Tidal Accelerator API. You can find more information about using Tidal [in the guides](https://guides.tidal.cloud).
 
-Looking for what Tidal Migrations is all about, [find out more](https://tidalmigrations.com/product/).
+Looking for what Tidal is all about, [find out more](https://tidalcloud.com/).
 
-Need help? [Let us know](mailto:support@tidalmigrations.com), we'd be happy to help you with your project.
+Need help? [Let us know](mailto:support@tidalcloud.com), we'd be happy to help you with your project.
