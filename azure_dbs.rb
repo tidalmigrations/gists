@@ -280,22 +280,37 @@ end
   
     formatted_dbs = all_dbs.map do |db|
       # STDERR.puts "Transforming DB: #{db.inspect}"
-      # env_tag = db[:tags]&.split(', ')&.find { |tag| tag.start_with?('environment: ') }
-      # environment = env_tag ? env_tag.split(': ')[1] : "production"
+      custom_fields = {}
+      custom_fields[:az_resource] = "Azure SQL"
+      custom_fields[:az_location] = db[:location]
 
-      {
+      if db[:tags]
+        tags = db[:tags].split(', ')
+        # environment tags have a special place in Tidal
+        env_tag = tags.find { |tag| tag.start_with?('environment: ') }
+        environment = env_tag ? env_tag.split(': ')[1] : "production"
+
+        # add all other tags as custom fields
+        tags.each do |t|
+          k = "az_lbl_#{ t.split(': ')[0] }"
+          v = t.split(': ')[1] 
+          custom_fields[k] = v unless k.start_with?('environment')
+        end
+      end
+
+      db_object = {
         name: db[:database_name],
         database_engine: "SQL Server",
         database_size_mb: (db[:max_size_bytes] / (1024**2)).round,
         database_path: "N/A",
         description: "Azure SQL Database",
-        environment: db[:tags],
         server: { host_name: db[:server_name] },
-        custom_fields: {
-          technologies: "Azure SQL",
-          location: db[:location]
-        }
       }
+      db_object[:environment] = environment if environment
+      db_object[:custom_fields] = custom_fields if custom_fields
+
+      # STDERR.puts "## Transformed database: #{db_object.inspect}"
+      db_object
     end
 
     puts ({ database_instances: formatted_dbs }).to_json
