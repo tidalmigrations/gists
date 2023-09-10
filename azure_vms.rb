@@ -104,7 +104,10 @@ module HttpUtil
   
 
   module AzureVM
-    NETWORK_API_VERSION = "2021-05-01"
+    # Network API: https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get?tabs=HTTP
+    NETWORK_API_VERSION = "2023-02-01"
+    # Compute API: https://learn.microsoft.com/en-us/rest/api/compute/
+    COMPUTE_API_VERSION = "2023-07-01"
     include HttpUtil
     include JSON
 
@@ -119,12 +122,11 @@ module HttpUtil
     }
 
     def get_vm_size_data_from_api(subscription, location)
-      api_version = "2023-07-01" 
       path = "/subscriptions/#{subscription}/providers/Microsoft.Compute/locations/#{location}/vmSizes"
       
       response = basic_request(
         path: path,
-        query_params: { "api-version": api_version },
+        query_params: { "api-version": COMPUTE_API_VERSION },
         headers: {
           "Authorization" => "Bearer #{get_token}"
         }
