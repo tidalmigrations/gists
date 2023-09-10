@@ -242,7 +242,7 @@ class DBFetcher
 
   def self.sync_to_tidal_portal(data, type)
     file_path = "/tmp/tidal_#{type}_data.json"
-    File.write(file_path, JSON.dump({ "#{type}": [data] }))
+    File.write(file_path, JSON.dump({ "#{type}": [data].flatten }))
     command_output = `tidal request -X POST "/api/v1/#{type}/sync" #{file_path}`
     match = command_output.match(/"id":\s*(\d+)/)
     if match
