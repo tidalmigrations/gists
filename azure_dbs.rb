@@ -3,7 +3,7 @@
 # This script will enumerate your Azure databases and sync the inventory to your
 # tidal.cloud workspace.
 #
-# Usage: ./azure_dbs.rb
+# Usage: ./azure_dbs.rb | tidal sync dbs
 #
 # Prereq's:
 #   1. az login - use the AZ CLI to login to azure, or run from Azure cloud shell
@@ -222,12 +222,16 @@ module AzureDB
       }
     )
     result = response_handler(api_name: "Azure Databases By Server", response: response)["value"].map do |db|
-      # STDERR.puts "Databases retrieved: #{result.inspect}"
       {
         name: db["name"],
         tags: db["tags"]&.map { |k, v| "#{k}: #{v}" }&.join(', '),
         max_size_bytes: db.dig("properties", "maxSizeBytes") || 0,
-        location: db["location"]
+        location: db["location"],
+        sku_name: db["sku"]["name"],
+        sku_tier: db["sku"]["tier"],
+        sku_capacity: db["sku"]["capacity"],
+        type: db["type"],
+        id: db["id"]
       }
     end
     result
@@ -293,7 +297,12 @@ class DBFetcher
               max_size_bytes: db[:max_size_bytes],
               tags: db[:tags],
               host_name: server_id,
-              location: db[:location] 
+              location: db[:location],
+              type: db[:type],
+              id: db[:id],
+              sku_name: db[:sku_name],
+              sku_tier: db[:sku_tier],
+              sku_capacity: db[:sku_capacity]
             }
           end)
         end
@@ -306,6 +315,9 @@ class DBFetcher
       custom_fields[:az_resource] = db[:type]
       custom_fields[:az_location] = db[:location]
       custom_fields[:az_id] = db[:id]
+      custom_fields[:az_sku_name] = db[:sku_name]
+      custom_fields[:az_sku_tier] = db[:sku_tier]
+      custom_fields[:az_sku_capacity] = db[:sku_capacity]
 
       if db[:tags] && !db[:tags].empty?
         # environment tags have a special place in Tidal
@@ -331,10 +343,12 @@ class DBFetcher
     end
 
     STDERR.puts "Syncing #{formatted_dbs.count} databases to Tidal Portal..."
+    # It is necessary to sync with this method in order to get the DB -> Server relationship
     sync_to_tidal_portal( formatted_dbs, "database_instances" )
  
-    # TODO - add a flag to this script to print the output as JSON
-    # puts ({ database_instances: formatted_dbs }).to_json
+    # But it's also necessary to sync with `tidal sync dbs`
+    # for the custom_fields to be created automatically.
+    puts ({ database_instances: formatted_dbs }).to_json
   end
 
   case ARGV[0]
