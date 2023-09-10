@@ -1,4 +1,14 @@
 #!/usr/bin/env ruby
+#
+# This script will enumerate your Azure databases and sync the inventory to your
+# tidal.cloud workspace.
+#
+# Usage: ./azure_dbs.rb
+#
+# Prereq's:
+#   1. az login - use the AZ CLI to login to azure, or run from Azure cloud shell
+#   2. tidal login - use the Tidal CLI from get.tidal.sh to login to your tidal.cloud workspace
+#
 
 require 'net/http'
 require 'json'
@@ -118,6 +128,7 @@ module HttpUtil
     include HttpUtil
     include JSON
 
+    # SQL API: https://learn.microsoft.com/en-us/rest/api/sql/
     DATABASE_API_VERSION = "2022-02-01-preview"
 
     def list_subscriptions
