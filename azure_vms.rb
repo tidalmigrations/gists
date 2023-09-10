@@ -330,7 +330,7 @@ module HttpUtil
         "https://management.azure.com"
       end
       def get_token
-        ENV["AZURE_TOKEN"]
+        @@AZURE_TOKEN ||= ENV["AZURE_TOKEN"] || `az account get-access-token --query accessToken --output tsv`.strip
       end
     end
   
