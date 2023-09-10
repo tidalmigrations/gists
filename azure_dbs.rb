@@ -41,18 +41,6 @@ module HttpUtil
       http.request(request)
     end
 
-    def get_disk_size(disk_id)
-      response = basic_request(
-        path: disk_id,
-        query_params: { "api-version": "2023-04-02" }, 
-        headers: {
-          "Authorization" => "Bearer #{get_token}"
-        }
-      )
-      disk_data = response_handler(api_name: "Azure Disk", response: response)
-      disk_data.dig("properties", "diskSizeGB") || 0
-    end
-  
     def response_handler(api_name: "", response:, return_body: true, return_header: nil, return_response: false)
       if %w[200 202 204].include? response.code
         if return_header
