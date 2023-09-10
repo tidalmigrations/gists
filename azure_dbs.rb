@@ -200,7 +200,6 @@ module AzureDB
       }
     )
     servers_data = response_handler(api_name: "Azure Database Servers", response: response)["value"]
-    # servers_data.each { |server| STDERR.puts "Detailed DB Server Data: #{server.inspect}" } 
     servers_data.each { |server| } 
     result = servers_data.map do |server|
       {
@@ -209,7 +208,6 @@ module AzureDB
         detailed_data: server 
       }
     end      
-    # STDERR.puts "DB Servers Result for #{resource_group}: #{result.inspect}"
     result
   end
 
@@ -245,13 +243,7 @@ class DBFetcher
   def self.sync_to_tidal_portal(data, type)
     file_path = "/tmp/tidal_#{type}_data.json"
     File.write(file_path, JSON.dump({ "#{type}": [data] }))
-
-    # STDERR.puts "Data being sent to Tidal: #{JSON.dump({ "#{type}": [data] })}"
-
     command_output = `tidal request -X POST "/api/v1/#{type}/sync" #{file_path}`
-
-    # STDERR.puts "Tidal Sync Output: #{command_output}"
-
     match = command_output.match(/"id":\s*(\d+)/)
     if match
       return match[1]
@@ -264,7 +256,6 @@ class DBFetcher
   # and then for each DB Server, it iterates across each database
   # and then for each database, it creates a Tidal DB and syncs it
   def self.pull_from_azure_server_and_db
-    all_servers = []
     all_dbs = []
 
     STDERR.puts "Fetching subscriptions..."
@@ -283,17 +274,14 @@ class DBFetcher
         db_servers.each do |server|
           detailed_server_data = server[:detailed_data]
           formatted_server = format_db_server_for_tidal(detailed_server_data)
-          # STDERR.puts "Syncing server #{server["name"]} to Tidal..."
           server_id = sync_to_tidal_portal(formatted_server, "servers")
           STDERR.puts "+ Created server #{server_id} in Tidal Portal from #{formatted_server["host_name"]}."
 
           begin
             dbs = list_databases_by_server(subscription, resource_group, server[:name])
-            # STDERR.puts "Databases before adding to all_dbs: #{dbs.inspect}"
           rescue => e
             STDERR.puts "Error fetching databases for server #{server[:name]}: #{e.message}"
           end
-
 
           all_dbs.concat(dbs.map do |db|
             {
