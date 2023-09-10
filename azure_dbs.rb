@@ -260,6 +260,9 @@ class DBFetcher
     end
   end
 
+  # this method iterates across each subscription -> resource group -> DB Server
+  # and then for each DB Server, it iterates across each database
+  # and then for each database, it creates a Tidal DB and syncs it
   def self.pull_from_azure_server_and_db
     all_servers = []
     all_dbs = []
@@ -282,8 +285,7 @@ class DBFetcher
           formatted_server = format_db_server_for_tidal(detailed_server_data)
           # STDERR.puts "Syncing server #{server["name"]} to Tidal..."
           server_id = sync_to_tidal_portal(formatted_server, "servers")
-
-          # STDERR.puts "Server ID in Tidal: #{server_id}"
+          STDERR.puts "+ Created server #{server_id} in Tidal Portal from #{formatted_server["host_name"]}."
 
           begin
             dbs = list_databases_by_server(subscription, resource_group, server[:name])
@@ -296,6 +298,7 @@ class DBFetcher
           all_dbs.concat(dbs.map do |db|
             {
               server_name: server[:name], 
+              server_id: server_id,
               database_name: db[:name],
               max_size_bytes: db[:max_size_bytes],
               tags: db[:tags],
@@ -322,14 +325,14 @@ class DBFetcher
         custom_fields.merge!( extract_azure_tags_as_custom_fields( db[:tags] ))
       end
 
-      db_object = {
-        name: db[:database_name],
-        database_engine: "SQL Server",
-        database_size_mb: (db[:max_size_bytes] / (1024**2)).round,
-        database_path: "N/A",
-        description: "Azure SQL Database",
-        server: { host_name: db[:server_name] },
-      }
+      db_object = {}
+      db_object[:name] = db[:database_name]
+      db_object[:database_engine] = "SQL Server" 
+      db_object[:database_size_mb] = (db[:max_size_bytes] / (1024**2)).round
+      db_object[:database_path] = "N/A"
+      db_object[:description] = "Azure SQL Database"
+      db_object[:server] = { host_name: db[:server_name] }
+      db_object[:server_id] = db[:server_id]
       db_object[:environment] = environment if environment
       db_object[:custom_fields] = custom_fields
 
