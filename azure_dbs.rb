@@ -107,18 +107,29 @@ end
 module AzureHelper
   def extract_azure_tags_as_custom_fields(tags)
     custom_fields = {}
-    tags = tags.split(', ')
-    tags.each do |t|
-      k = "az_lbl_#{ t.split(': ')[0] }"
-      v = t.split(': ')[1] 
-      custom_fields[k] = v unless k.start_with?('environment')
+    if tags.is_a? String
+      tags = tags.split(', ')
+      tags.each do |t|
+        k = "az_lbl_#{ t.split(': ')[0] }"
+        v = t.split(': ')[1] 
+        custom_fields[k] = v unless k.start_with?('environment')
+      end
+    elsif tags.is_a? Hash
+      tags.each do |k, v|
+        k = "az_lbl_#{ k }"
+        custom_fields[k] = v unless k.start_with?('environment')
+      end
     end
     custom_fields
   end
 
   def extract_environment_tag(tags)
-    env_tag = tags.split(', ').find { |tag| tag.start_with?('environment: ') }
-    env_tag.split(': ')[1] if env_tag
+    if tags.is_a? String
+      env_tag = tags.split(', ').find { |tag| tag.start_with?('environment: ') }
+      env_tag.split(': ')[1] if env_tag
+    elsif tags.is_a? Hash
+      tags['environment']
+    end
   end
 end
 
@@ -127,18 +138,22 @@ module AzureDBServer
   include JSON
 
   def format_db_server_for_tidal(server)
+    # STDERR.puts "Transforming server: #{server.inspect}"
     properties = server["properties"] || {}
-    tags = (server["tags"] && server["tags"]["use"]) || server[:tags]&.split(": ")&.last
-
-    STDERR.puts "Raw server data: #{server.inspect}"
-    {
-      host_name: server["name"] || server[:name],
-      fqdn: properties["fullyQualifiedDomainName"],
-      environment: tags,
-      custom_fields: {
-        location: server["location"]
-      }
-    }.compact
+    custom_fields = {}
+    custom_fields[:az_resource] = server["type"]
+    custom_fields[:az_location] = server["location"]
+    custom_fields[:az_id] = server["id"]
+    
+    db_server = {}
+    db_server["host_name"] = server["name"] || server[:name]
+    fqdn = properties.fetch("fullyQualifiedDomainName", nil)
+    db_server["fqdn"] = fqdn if fqdn
+    db_server["environment"] = extract_environment_tag( server["tags"] ) if server["tags"]
+    custom_fields.merge!( extract_azure_tags_as_custom_fields( server["tags"] )) if server["tags"]
+    db_server["custom_fields"] = custom_fields
+    # STDERR.puts "## Transformed server: #{db_server.inspect}"
+    db_server
   end         
 end
 
@@ -295,8 +310,9 @@ class DBFetcher
     formatted_dbs = all_dbs.map do |db|
       # STDERR.puts "Transforming DB: #{db.inspect}"
       custom_fields = {}
-      custom_fields[:az_resource] = "Azure SQL"
+      custom_fields[:az_resource] = db[:type]
       custom_fields[:az_location] = db[:location]
+      custom_fields[:az_id] = db[:id]
 
       if db[:tags] && !db[:tags].empty?
         # environment tags have a special place in Tidal
