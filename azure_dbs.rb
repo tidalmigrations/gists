@@ -98,8 +98,6 @@ module HttpUtil
     include HttpUtil
     include JSON
     
-    SERVER_API_VERSION = "2022-02-01-preview"
-    
     def format_db_server_for_tidal(server)
       properties = server["properties"] || {}
       tags = (server["tags"] && server["tags"]["use"]) || server[:tags]&.split(": ")&.last
