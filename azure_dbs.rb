@@ -104,6 +104,24 @@ module HttpUtil
     end
   end
   
+  module AzureHelper
+    def extract_azure_tags_as_custom_fields(tags)
+      custom_fields = {}
+      tags = tags.split(', ')
+      tags.each do |t|
+        k = "az_lbl_#{ t.split(': ')[0] }"
+        v = t.split(': ')[1] 
+        custom_fields[k] = v unless k.start_with?('environment')
+      end
+      custom_fields
+    end
+
+    def extract_environment_tag(tags)
+      env_tag = tags.split(', ').find { |tag| tag.start_with?('environment: ') }
+      env_tag.split(': ')[1] if env_tag
+    end
+  end
+
   module AzureDBServer
     include HttpUtil
     include JSON
@@ -207,6 +225,7 @@ module HttpUtil
 class DBFetcher
   extend AzureDB
   extend AzureDBServer
+  extend AzureHelper
 
   def self.sync_to_tidal_portal(data, type)
     file_path = "/tmp/tidal_#{type}_data.json"
@@ -224,9 +243,7 @@ class DBFetcher
     else
       raise "Failed to capture ID from Tidal sync output."
     end
-end
-
-  
+  end
 
   def self.pull_from_azure_server_and_db
     all_servers = []
@@ -281,18 +298,12 @@ end
       custom_fields[:az_resource] = "Azure SQL"
       custom_fields[:az_location] = db[:location]
 
-      if db[:tags]
-        tags = db[:tags].split(', ')
+      if db[:tags] && !db[:tags].empty?
         # environment tags have a special place in Tidal
-        env_tag = tags.find { |tag| tag.start_with?('environment: ') }
-        environment = env_tag ? env_tag.split(': ')[1] : "production"
+        environment = extract_environment_tag( db[:tags] )
 
         # add all other tags as custom fields
-        tags.each do |t|
-          k = "az_lbl_#{ t.split(': ')[0] }"
-          v = t.split(': ')[1] 
-          custom_fields[k] = v unless k.start_with?('environment')
-        end
+        custom_fields.merge!( extract_azure_tags_as_custom_fields( db[:tags] ))
       end
 
       db_object = {
@@ -304,7 +315,7 @@ end
         server: { host_name: db[:server_name] },
       }
       db_object[:environment] = environment if environment
-      db_object[:custom_fields] = custom_fields if custom_fields
+      db_object[:custom_fields] = custom_fields
 
       # STDERR.puts "## Transformed database: #{db_object.inspect}"
       db_object
