@@ -230,7 +230,6 @@ module AzureDB
         location: db["location"]
       }
     end
-    STDERR.puts "DBs for Server #{server_name} in #{resource_group}: #{result.inspect}"
     result
   end    
 end
@@ -261,15 +260,18 @@ class DBFetcher
     STDERR.puts "Fetching subscriptions..."
     subscriptions = list_subscriptions
 
-    STDERR.puts "Found #{subscriptions.count} subscriptions."
+    STDERR.puts "=> Found #{subscriptions.count} subscriptions."
     subscriptions.each do |subscription|
-      STDERR.puts "Fetching resource groups for subscription #{subscription}..."
       resource_groups = list_resource_groups(subscription)
+      unless resource_groups.count == 0
+        STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}." 
+      end
 
-      STDERR.puts "Found #{resource_groups.count} resource groups in subscription #{subscription}."
       resource_groups.each do |resource_group|
-        STDERR.puts "Fetching database servers in resource group #{resource_group}..."
         db_servers = list_db_servers(subscription, resource_group)
+        unless db_servers.count == 0
+          STDERR.puts "=> Found #{db_servers.count} DB servers in resource group #{resource_group}" 
+        end
 
         db_servers.each do |server|
           detailed_server_data = server[:detailed_data]
@@ -328,7 +330,11 @@ class DBFetcher
       db_object
     end
 
-    puts ({ database_instances: formatted_dbs }).to_json
+    STDERR.puts "Syncing #{formatted_dbs.count} databases to Tidal Portal..."
+    sync_to_tidal_portal( formatted_dbs, "database_instances" )
+ 
+    # TODO - add a flag to this script to print the output as JSON
+    # puts ({ database_instances: formatted_dbs }).to_json
   end
 
   case ARGV[0]
