@@ -238,10 +238,42 @@ module AzureDB
   end    
 end
 
+module AzureElasticPool
+  include HttpUtil
+  include JSON
+
+  DATABASE_API_VERSION = "2022-02-01-preview"
+
+  def list_elastic_pools(subscription, resource_group, server_name)
+    path = "/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/Microsoft.Sql/servers/#{server_name}/elasticPools"
+    response = basic_request(
+      path:         path,
+      query_params: { "api-version": DATABASE_API_VERSION },
+      headers:      {
+        "Authorization" => "Bearer #{get_token}"
+      }
+    )
+    response_handler(api_name: "Azure Elastic Pools", response: response)["value"]
+  end
+
+  def list_databases_by_elastic_pool(subscription, resource_group, server_name, pool_name)
+    path = "/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/Microsoft.Sql/servers/#{server_name}/elasticPools/#{pool_name}/databases"
+    response = basic_request(
+      path:         path,
+      query_params: { "api-version": DATABASE_API_VERSION },
+      headers:      {
+        "Authorization" => "Bearer #{get_token}"
+      }
+    )
+    response_handler(api_name: "Azure Databases By Elastic Pool", response: response)["value"]
+  end
+end
+
 class DBFetcher
   extend AzureDB
   extend AzureDBServer
   extend AzureHelper
+  extend AzureElasticPool
 
   def self.sync_to_tidal_portal(data, type)
     file_path = "/tmp/tidal_#{type}_data.json"
