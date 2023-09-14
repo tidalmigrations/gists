@@ -138,23 +138,40 @@ module AzureDBServer
   include JSON
 
   def format_db_server_for_tidal(server)
-    # STDERR.puts "Transforming server: #{server.inspect}"
     properties = server["properties"] || {}
-    custom_fields = {}
-    custom_fields[:az_resource] = server["type"]
-    custom_fields[:az_location] = server["location"]
-    custom_fields[:az_id] = server["id"]
-    
-    db_server = {}
-    db_server["host_name"] = server["name"] || server[:name]
+    custom_fields = {
+      az_resource: server["type"],
+      az_location: server["location"],
+      az_id: server["id"]
+    }
+
+    db_server = {
+      host_name: server["name"] || server[:name],
+      environment: extract_environment_tag(server["tags"]),
+      custom_fields: custom_fields.merge(extract_azure_tags_as_custom_fields(server["tags"]))
+    }
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
-    db_server["fqdn"] = fqdn if fqdn
-    db_server["environment"] = extract_environment_tag( server["tags"] ) if server["tags"]
-    custom_fields.merge!( extract_azure_tags_as_custom_fields( server["tags"] )) if server["tags"]
-    db_server["custom_fields"] = custom_fields
-    # STDERR.puts "## Transformed server: #{db_server.inspect}"
+    db_server[:fqdn] = fqdn if fqdn
     db_server
-  end         
+  end
+
+  def format_elastic_pool_for_tidal(pool)
+    properties = pool["properties"] || {}
+    custom_fields = {
+      az_resource: pool["type"],
+      az_location: pool["location"],
+      az_id: pool["id"]
+    }
+
+    elastic_pool = {
+      host_name: pool["name"] || pool[:name],
+      environment: extract_environment_tag(pool["tags"]),
+      custom_fields: custom_fields.merge(extract_azure_tags_as_custom_fields(pool["tags"]))
+    }
+    fqdn = properties.fetch("fullyQualifiedDomainName", nil)
+    elastic_pool[:fqdn] = fqdn if fqdn
+    elastic_pool
+  end
 end
 
 module AzureDB
@@ -283,7 +300,11 @@ class DBFetcher
     if match
       return match[1]
     else
-      raise "Failed to capture ID from Tidal sync output."
+      # Emit the response for debugging purposes
+      STDERR.puts "Error syncing to Tidal portal for type #{type}:"
+      STDERR.puts command_output
+  
+      raise "Failed to capture ID from Tidal sync output. Command output: #{command_output}"
     end
   end
 
@@ -309,34 +330,63 @@ class DBFetcher
           STDERR.puts "=> Found #{db_servers.count} DB servers in resource group #{resource_group}" 
         end
 
-        db_servers.each do |server|
-          detailed_server_data = server[:detailed_data]
-          formatted_server = format_db_server_for_tidal(detailed_server_data)
-          server_id = sync_to_tidal_portal(formatted_server, "servers")
-          STDERR.puts "+ Created server #{server_id} in Tidal Portal from #{formatted_server["host_name"]}."
+          db_servers.each do |server|
+            detailed_server_data = server[:detailed_data]
+            formatted_server = format_db_server_for_tidal(detailed_server_data)
+            server_id = sync_to_tidal_portal(formatted_server, "servers")
+            STDERR.puts "+ Created server #{server_id} in Tidal Portal from #{formatted_server["host_name"]}."
+          
+            begin
+              dbs = list_databases_by_server(subscription, resource_group, server[:name])
+            rescue => e
+              STDERR.puts "Error fetching databases for server #{server[:name]}: #{e.message}"
+            end
+          
+            all_dbs.concat(dbs.map do |db|
+              {
+                server_name: server[:name], 
+                server_id: server_id,
+                database_name: db[:name],
+                max_size_bytes: db[:max_size_bytes],
+                tags: db[:tags],
+                host_name: server_id,
+                location: db[:location],
+                type: db[:type],
+                id: db[:id],
+                sku_name: db[:sku_name],
+                sku_tier: db[:sku_tier],
+                sku_capacity: db[:sku_capacity]
+              }
+            end)
 
-          begin
-            dbs = list_databases_by_server(subscription, resource_group, server[:name])
-          rescue => e
-            STDERR.puts "Error fetching databases for server #{server[:name]}: #{e.message}"
+          # Fetch Elastic Pools
+          elastic_pools = list_elastic_pools(subscription, resource_group, server[:name])
+          elastic_pools.each do |pool|
+            formatted_pool = format_elastic_pool_for_tidal(pool)
+            pool_id = sync_to_tidal_portal(formatted_pool, "servers")
+            STDERR.puts "+ Created Elastic Pool server #{pool_id} in Tidal Portal from #{formatted_pool["host_name"]}."
+          
+            # Fetch databases associated with the Elastic Pool
+            dbs_by_pool = list_databases_by_elastic_pool(subscription, resource_group, server[:name], pool["name"])
+
+            # Process each database for Elastic Pool
+            all_dbs.concat(dbs_by_pool.map do |db|
+              {
+                server_name: pool["name"], 
+                server_id: pool_id,
+                database_name: db["name"],
+                max_size_bytes: db["maxSizeBytes"],
+                tags: db["tags"]&.map { |k, v| "#{k}: #{v}" }&.join(', '),
+                host_name: pool_id,
+                location: db["location"],
+                type: db["type"],
+                id: db["id"],
+                sku_name: db["sku"]["name"],
+                sku_tier: db["sku"]["tier"],
+                sku_capacity: db["sku"]["capacity"]
+              }
+            end)
           end
-
-          all_dbs.concat(dbs.map do |db|
-            {
-              server_name: server[:name], 
-              server_id: server_id,
-              database_name: db[:name],
-              max_size_bytes: db[:max_size_bytes],
-              tags: db[:tags],
-              host_name: server_id,
-              location: db[:location],
-              type: db[:type],
-              id: db[:id],
-              sku_name: db[:sku_name],
-              sku_tier: db[:sku_tier],
-              sku_capacity: db[:sku_capacity]
-            }
-          end)
         end
       end
     end
@@ -362,7 +412,7 @@ class DBFetcher
       db_object = {}
       db_object[:name] = db[:database_name]
       db_object[:database_engine] = "SQL Server" 
-      db_object[:database_size_mb] = (db[:max_size_bytes] / (1024**2)).round
+      db_object[:database_size_mb] = ((db[:max_size_bytes] || 0) / (1024.0**2)).round
       db_object[:database_path] = "N/A"
       db_object[:description] = "Azure SQL Database"
       db_object[:server] = { host_name: db[:server_name] }
