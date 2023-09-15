@@ -272,14 +272,11 @@ module AzureVM
           # STDERR.puts "Retrieved FQDN for NIC URI #{nic_uri}: #{chosen_fqdn}"
         end
       else
-        STDERR.puts "No public IP details found for NIC with URI: #{nic_uri}"
+        # STDERR.puts "No public IP details found for NIC with URI: #{nic_uri}"
       end
     end
-
     chosen_fqdn ||= 'N/A'
-
     [private_ips, public_ips, chosen_fqdn]
-
   end
 
   def pull_from_azure_vm
@@ -288,16 +285,19 @@ module AzureVM
     STDERR.puts "Fetching subscriptions..."
     subscriptions = list_subscriptions
 
-    STDERR.puts "Found #{subscriptions.count} subscriptions."
+    STDERR.puts "=> Found #{subscriptions.count} subscriptions."
     subscriptions.each do |subscription|
-      STDERR.puts "Fetching resource groups for subscription #{subscription}..."
       resource_groups = list_resource_groups(subscription)
+      unless resource_groups.count == 0
+        STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}." 
+      end
 
-      STDERR.puts "Found #{resource_groups.count} resource groups in subscription #{subscription}."
       resource_groups.each do |resource_group|
-        STDERR.puts "Fetching VMs in resource group #{resource_group}..."
         vms = get_vms(subscription, resource_group)
-
+        unless vms.count == 0
+          STDERR.puts "=> Found #{vms.count} VMs in resource group #{resource_group}" 
+        end
+  
         vms.map! do |vm|
           size_details = get_vm_size_details(subscription, vm[:location], vm[:vm_size]) || {}
 
@@ -333,7 +333,6 @@ module AzureVM
     @@AZURE_TOKEN ||= ENV["AZURE_TOKEN"] || `az account get-access-token --query accessToken --output tsv`.strip
   end
 end
-
 
 module AzureAppService
   APP_SERVICE_API_VERSION = "2022-09-01"
@@ -376,15 +375,18 @@ module AzureAppService
     STDERR.puts "Fetching subscriptions..."
     subscriptions = list_subscriptions
 
-    STDERR.puts "Found #{subscriptions.count} subscriptions."
-    subscriptions.each do |subscription|
-      STDERR.puts "Fetching resource groups for subscription #{subscription}..."
-      resource_groups = list_resource_groups(subscription)
+    STDERR.puts "=> Found #{subscriptions.count} subscriptions."
+      subscriptions.each do |subscription|
+        resource_groups = list_resource_groups(subscription)
+        unless resource_groups.count == 0
+          STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}." 
+        end
 
-      STDERR.puts "Found #{resource_groups.count} resource groups in subscription #{subscription}."
       resource_groups.each do |resource_group|
-        STDERR.puts "Fetching App Services in resource group #{resource_group}..."
         app_services = list_app_services(subscription, resource_group)
+        unless app_services.count == 0
+          STDERR.puts "=> Found #{app_services.count} App Services in resource group #{resource_group}" 
+        end        
 
         app_services.map! do |app_service|
           get_app_service_details(app_service)
