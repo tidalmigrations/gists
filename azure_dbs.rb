@@ -139,37 +139,36 @@ module AzureDBServer
 
   def format_db_server_for_tidal(server)
     properties = server["properties"] || {}
-    custom_fields = {
-      az_resource: server["type"],
-      az_location: server["location"],
-      az_id: server["id"]
-    }
-
-    db_server = {
-      host_name: server["name"] || server[:name],
-      environment: extract_environment_tag(server["tags"]),
-      custom_fields: custom_fields.merge(extract_azure_tags_as_custom_fields(server["tags"]))
-    }
+    custom_fields = {}
+    custom_fields[:az_resource] = server["type"]
+    custom_fields[:az_location] = server["location"]
+    custom_fields[:az_id] = server["id"]
+    
+    db_server = {}
+    db_server[:host_name] = server["name"] || server[:name] 
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
-    db_server[:fqdn] = fqdn if fqdn
+    db_server["fqdn"] = fqdn if fqdn
+    db_server["environment"] = extract_environment_tag( server["tags"] ) if server["tags"]
+    custom_fields.merge!( extract_azure_tags_as_custom_fields( server["tags"] )) if server["tags"]
+    db_server["custom_fields"] = custom_fields
     db_server
   end
 
+
   def format_elastic_pool_for_tidal(pool)
     properties = pool["properties"] || {}
-    custom_fields = {
-      az_resource: pool["type"],
-      az_location: pool["location"],
-      az_id: pool["id"]
-    }
-
-    elastic_pool = {
-      host_name: pool["name"] || pool[:name],
-      environment: extract_environment_tag(pool["tags"]),
-      custom_fields: custom_fields.merge(extract_azure_tags_as_custom_fields(pool["tags"]))
-    }
+    custom_fields = {}
+    custom_fields[:az_resource] = pool["type"]
+    custom_fields[:az_location] = pool["location"]
+    custom_fields[:az_id] = pool["id"]
+    
+    elastic_pool = {}
+    elastic_pool[:host_name] = pool["name"] || pool[:name]
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
     elastic_pool[:fqdn] = fqdn if fqdn
+    elastic_pool[:environment] = extract_environment_tag(pool["tags"]) if pool["tags"]
+    custom_fields.merge!(extract_azure_tags_as_custom_fields(pool["tags"])) if pool["tags"]
+    elastic_pool[:custom_fields] = custom_fields
     elastic_pool
   end
 end

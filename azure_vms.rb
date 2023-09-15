@@ -334,17 +334,84 @@ module AzureVM
   end
 end
 
+
+module AzureAppService
+  APP_SERVICE_API_VERSION = "2022-09-01"
+  include HttpUtil
+  include JSON
+
+  def list_app_services(subscription, resource_group)
+    path = "/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/Microsoft.Web/sites"
+    response = basic_request(
+      path: path,
+      query_params: { "api-version": APP_SERVICE_API_VERSION },
+      headers: {
+        "Authorization" => "Bearer #{get_token}"
+      }
+    )
+    app_services = response_handler(api_name: "Azure App Services", response: response)["value"]
+    app_services
+  end
+
+  def get_app_service_details(app_service)
+    {
+      host_name: app_service["name"],
+      location: app_service["location"],
+      description: "Azure App Service",
+      operating_system: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows",
+      tags: app_service["tags"],
+      custom_fields: {
+        siteId: app_service["id"],
+        state: app_service.dig("properties", "state"),
+        default_host_name: app_service.dig("properties", "defaultHostName"),
+        kind: app_service["kind"],
+        host_names: app_service.dig("properties", "hostNames").first
+      }
+    }
+  end
+
+  def pull_from_azure_app_service
+    all_app_services = []
+
+    STDERR.puts "Fetching subscriptions..."
+    subscriptions = list_subscriptions
+
+    STDERR.puts "Found #{subscriptions.count} subscriptions."
+    subscriptions.each do |subscription|
+      STDERR.puts "Fetching resource groups for subscription #{subscription}..."
+      resource_groups = list_resource_groups(subscription)
+
+      STDERR.puts "Found #{resource_groups.count} resource groups in subscription #{subscription}."
+      resource_groups.each do |resource_group|
+        STDERR.puts "Fetching App Services in resource group #{resource_group}..."
+        app_services = list_app_services(subscription, resource_group)
+
+        app_services.map! do |app_service|
+          get_app_service_details(app_service)
+        end
+
+        all_app_services.concat(app_services)
+      end
+    end
+
+    puts ({ servers: all_app_services }).to_json
+  end
+end
+
+
 class VMFetcher
   extend AzureVM
+  extend AzureAppService
 
   case ARGV[0]
   when nil
     pull_from_azure_vm
+    pull_from_azure_app_service
   when "-h"
     puts <<~EOT
-        Azure VM Fetching Menu:
+        Azure VM and App Service Fetching Menu:
          cmd | inputs        | description
-             | -             | fetch all VMs across subscriptions and resource groups
+             | -             | fetch all VMs and App Services across subscriptions and resource groups
           -h | -             | print help menu
     EOT
   else
