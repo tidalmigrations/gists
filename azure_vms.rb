@@ -418,9 +418,8 @@ module AzureAppService
         state: app_service.dig("properties", "state"),
         default_host_name: app_service.dig("properties", "defaultHostName"),
         kind: app_service["kind"],
-        host_names: app_service.dig("properties", "hostNames").first,
-        operating_system: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows",
-        # az_id: app_service["id"],
+        host_names: app_service.dig("properties", "enabledHostNames")&.join(', '),
+        operating_system_name: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows" || "N/A",
         az_resource: app_service["type"],
         az_location: app_service["location"]
       }.merge(tags)
