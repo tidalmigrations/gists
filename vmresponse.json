@@ -1,0 +1,210 @@
+{
+    "servers": [
+        {
+            "host_name": "machine-Baz6",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-1ZQb",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-4Uhb",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-E4ds",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-ZeO5",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-rvSC",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-2ErM",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-KkkI",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-6kFu",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "machine-wCT4",
+            "ip_addresses": [
+                "10.0.2.4"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 2,
+            "cpu_count": 1,
+            "storage_allocated_gb": 30,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "rhel5-5",
+            "ip_addresses": [
+                "10.2.0.4",
+                "20.220.206.47"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 3,
+            "cpu_count": 1,
+            "storage_allocated_gb": 1024,
+            "fqdn": "N/A"
+        },
+        {
+            "host_name": "rhel5-7",
+            "ip_addresses": [
+                "10.2.0.7",
+                "20.104.92.153"
+            ],
+            "description": "Azure VM",
+            "operating_system": "Linux",
+            "operating_system_version": "N/A",
+            "custom_fields": {
+                "location": "canadacentral",
+                "operating_system_name": "Linux"
+            },
+            "ram_allocated_gb": 3,
+            "cpu_count": 1,
+            "storage_allocated_gb": 1024,
+            "fqdn": "N/A"
+        }
+    ]
+}

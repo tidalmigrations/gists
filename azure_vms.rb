@@ -102,16 +102,44 @@ module HttpUtil
   end
 end
 
+module AzureHelper
+  def extract_azure_tags_as_custom_fields(tags)
+    custom_fields = {}
+    if tags.is_a? String
+      tags = tags.split(', ')
+      tags.each do |t|
+        k = "az_lbl_#{ t.split(': ')[0] }"
+        v = t.split(': ')[1] 
+        custom_fields[k] = v unless k.start_with?('environment')
+      end
+    elsif tags.is_a? Hash
+      tags.each do |k, v|
+        k = "az_lbl_#{ k }"
+        custom_fields[k] = v unless k.start_with?('environment')
+      end
+    end
+    custom_fields
+  end
+
+  def extract_environment_tag(tags)
+    if tags.is_a? String
+      env_tag = tags.split(', ').find { |tag| tag.start_with?('environment: ') }
+      env_tag.split(': ')[1] if env_tag
+    elsif tags.is_a? Hash
+      tags['environment']
+    end
+  end
+end
 
 module AzureVM
+  include AzureHelper
   # Network API: https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get?tabs=HTTP
   NETWORK_API_VERSION = "2023-02-01"
   # Compute API: https://learn.microsoft.com/en-us/rest/api/compute/
   COMPUTE_API_VERSION = "2023-07-01"
   include HttpUtil
   include JSON
-
-
+ 
   # How to get the list of sizes from Azure API, 
   # curl -X GET \
   #  -H "Authorization: Bearer $AZURE_TOKEN" \
@@ -215,20 +243,29 @@ module AzureVM
 
       total_storage_gb = os_disk_size + data_disk_size
 
+      vm_tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
+      environment = vm["tags"] && vm["tags"]["environment"]
+
       {
         host_name: vm["name"],
         location: vm["location"],
         ip_addresses: private_ips + public_ips,
         fqdn: fqdn_value,
         assigned_id: vm["id"],
-        # ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"), 
-        # cpu_count: vm.dig("properties", "hardwareProfile", "vmSize"), 
+        ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"), 
+        cpu_count: vm.dig("properties", "hardwareProfile", "vmSize"), 
         vm_size: vm.dig("properties", "hardwareProfile", "vmSize"),
         storage_allocated_gb: total_storage_gb || "N/A",
         operating_system: vm.dig("properties", "storageProfile", "osDisk", "osType"),
         operating_system_version: vm.dig("properties", "storageProfile", "imageReference", "version"),
-        environment: vm["tags"] && vm["tags"]["Environment"],
-        zone: vm.dig("properties", "availabilitySet", "id")
+        # environment: vm["tags"] && vm["tags"]["Environment"],
+        zone: vm.dig("properties", "availabilitySet", "id"), 
+        az_resource: vm["type"],
+        az_location: vm["location"],
+        az_id: vm["id"],
+        state: vm.dig("properties", "provisioningState"), 
+        tags: vm_tags,
+        environment: environment
       }
     end
   end
@@ -301,6 +338,9 @@ module AzureVM
         vms.map! do |vm|
           size_details = get_vm_size_details(subscription, vm[:location], vm[:vm_size]) || {}
 
+          tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
+          environment = extract_environment_tag(vm["tags"]) if vm["tags"]
+
           {
             host_name: vm[:host_name],
             ip_addresses: vm[:ip_addresses].is_a?(Array) ? vm[:ip_addresses].flatten : [vm[:ip_addresses]],
@@ -309,8 +349,14 @@ module AzureVM
             operating_system_version: vm[:operating_system_version] || "N/A",
             custom_fields: {
               location: vm[:location],
-              operating_system_name: vm[:operating_system] || "N/A"
-            },
+              operating_system_name: vm[:operating_system] || "N/A",
+              az_resource: vm[:az_resource],
+              az_location: vm[:az_location],
+              # az_id: vm[:az_id],
+              az_vmSize: vm[:vm_size],
+              state: vm[:state]
+            }.merge(vm[:tags]),
+            environment: vm[:environment],
             ram_allocated_gb: size_details['memoryInMB'] ? (size_details['memoryInMB'] / 1024).to_i : nil,
             cpu_count: size_details['numberOfCores'] || "N/A",
             storage_allocated_gb: vm[:storage_allocated_gb] || "N/A",
@@ -335,6 +381,7 @@ module AzureVM
 end
 
 module AzureAppService
+  include AzureHelper
   APP_SERVICE_API_VERSION = "2022-09-01"
   include HttpUtil
   include JSON
@@ -353,21 +400,33 @@ module AzureAppService
   end
 
   def get_app_service_details(app_service)
+    fqdn = app_service.dig("properties", "defaultHostName") || 'N/A'
+
+    tags = app_service["tags"] ? extract_azure_tags_as_custom_fields(app_service["tags"]) : {}
+    environment = extract_environment_tag(app_service["tags"]) if app_service["tags"]
+  
     {
       host_name: app_service["name"],
       location: app_service["location"],
       description: "Azure App Service",
       operating_system: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows",
       tags: app_service["tags"],
+      fqdn: fqdn,
+      environment: environment,
       custom_fields: {
         siteId: app_service["id"],
         state: app_service.dig("properties", "state"),
         default_host_name: app_service.dig("properties", "defaultHostName"),
         kind: app_service["kind"],
-        host_names: app_service.dig("properties", "hostNames").first
-      }
+        host_names: app_service.dig("properties", "hostNames").first,
+        operating_system: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows",
+        # az_id: app_service["id"],
+        az_resource: app_service["type"],
+        az_location: app_service["location"]
+      }.merge(tags)
     }
   end
+  
 
   def pull_from_azure_app_service
     all_app_services = []
