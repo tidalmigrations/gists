@@ -292,8 +292,9 @@ class DBFetcher
   extend AzureElasticPool
 
   def self.sync_to_tidal_portal(data, type)
-    # file_path = "/tmp/tidal_#{type}_data.json"
-    file_path = "#{Dir.pwd}/tidal_#{type}_data.json"
+    file_path = "/tmp/tidal_#{type}_data.json"
+    # Temporary file creation for Windows Run
+    # file_path = "#{Dir.pwd}/tidal_#{type}_data.json"
     File.write(file_path, JSON.dump({ "#{type}": [data].flatten }))
     command_output = `tidal request -X POST "/api/v1/#{type}/sync" #{file_path}`
     match = command_output.match(/"id":\s*(\d+)/)
