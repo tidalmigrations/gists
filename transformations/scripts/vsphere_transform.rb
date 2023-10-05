@@ -28,7 +28,7 @@ def transform(input)
     props[:virtual] = true
     props[:cpu_name] = hostruntime["host"] ? hostruntime["host"]["Summary"]["Hardware"]["CpuModel"] : nil
     props[:operating_system_version] = nil
-    props[:ip_addresses] = guest["Net"].map do |net| net["IpAddress"]  end
+    props[:ip_addresses] = guest["Net"].map do |net| { address: net["IpAddress"] }  end
 
     custom = {status:  stats["GuestHeartbeatStatus"],
               product: config["Product"] ? config["Product"]["Name"] : false }

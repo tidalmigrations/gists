@@ -157,7 +157,7 @@ resource group\n#{subscription}: #{resource_group} \n\n"
       end
       response = {
         host_name:              properties["displayName"],
-        ip_addresses:           ip_addresses,
+        ip_addresses:           ip_addresses.map{ |ip| { address: ip } },
         description:            properties["description"],
         custom_fields:          {
           arm_id: properties["discoveryMachineArmId"], operating_system_type: properties["operatingSystemType"],
