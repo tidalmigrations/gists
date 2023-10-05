@@ -218,7 +218,7 @@ module AzureVM
       {
         host_name: vm["name"],
         location: vm["location"],
-        ip_addresses: private_ips + public_ips,
+        ip_addresses: private_ips.concat(public_ips).map{|ip| {address: ip}},
         fqdn: fqdn_value,
         assigned_id: vm["id"],
         # ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"), 
@@ -303,7 +303,7 @@ module AzureVM
 
           {
             host_name: vm[:host_name],
-            ip_addresses: vm[:ip_addresses].is_a?(Array) ? vm[:ip_addresses].flatten : [vm[:ip_addresses]],
+            ip_addresses: vm[:ip_addresses].is_a?(Array) ? vm[:ip_addresses].flatten.map{|addr| {address: addr}} : [{address: vm[:ip_addresses]}],
             description: "Azure VM", 
             operating_system: vm[:operating_system] || "N/A",
             operating_system_version: vm[:operating_system_version] || "N/A",
