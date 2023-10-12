@@ -131,6 +131,20 @@ module AzureHelper
   end
 end
 
+
+SAVE_INTERVAL = 10  # Save after fetching # resources
+
+$global_vms = []
+
+def append_to_file(filename, data)
+  $global_vms.concat(data)
+
+  # Print to visualize the data being appended
+  # STDERR.puts "Appending to file: #{data.to_json}"
+
+  File.write(filename, { servers: $global_vms }.to_json)
+end
+
 module AzureVM
   include AzureHelper
   # Network API: https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get?tabs=HTTP
@@ -243,7 +257,7 @@ module AzureVM
 
       total_storage_gb = os_disk_size + data_disk_size
 
-      vm_tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
+      custom_fields_from_tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
       environment = vm["tags"] && vm["tags"]["environment"]
 
       {
@@ -264,7 +278,7 @@ module AzureVM
         az_location: vm["location"],
         az_id: vm["id"],
         state: vm.dig("properties", "provisioningState"), 
-        tags: vm_tags,
+        custom_fields: custom_fields_from_tags,
         environment: environment
       }
     end
@@ -338,7 +352,7 @@ module AzureVM
         vms.map! do |vm|
           size_details = get_vm_size_details(subscription, vm[:location], vm[:vm_size]) || {}
 
-          tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
+          # tags = vm["tags"] ? extract_azure_tags_as_custom_fields(vm["tags"]) : {}
           environment = extract_environment_tag(vm["tags"]) if vm["tags"]
 
           {
@@ -355,7 +369,7 @@ module AzureVM
               # az_id: vm[:az_id],
               az_vmSize: vm[:vm_size],
               state: vm[:state]
-            }.merge(vm[:tags]),
+            }.merge(vm[:custom_fields]),
             environment: vm[:environment],
             ram_allocated_gb: size_details['memoryInMB'] ? (size_details['memoryInMB'] / 1024).to_i : nil,
             cpu_count: size_details['numberOfCores'] || "N/A",
@@ -365,10 +379,19 @@ module AzureVM
         end
 
         all_vms.concat(vms)
+
+        # Periodically save to file
+        if all_vms.size >= SAVE_INTERVAL
+            append_to_file('azure_vms.json', all_vms)
+            all_vms.clear
+        end    
       end
     end
+    append_to_file('azure_vms.json', all_vms) unless all_vms.empty?
 
-    puts ({ servers: all_vms }).to_json
+    # Print all VMs to STDOUT for tidal sync
+    # final_vms = JSON.parse(File.read('azure_vms.json'))
+    puts ({ servers: $global_vms }).to_json
   end
 
   private
@@ -378,6 +401,17 @@ module AzureVM
   def get_token
     @@AZURE_TOKEN ||= ENV["AZURE_TOKEN"] || `az account get-access-token --query accessToken --output tsv`.strip
   end
+end
+
+$global_app_services = []
+
+def append_app_service_to_file(filename, data)
+  $global_app_services.concat(data)
+
+  # Print to visualize the data being appended
+  # STDERR.puts "Appending to file: #{data.to_json}"
+  
+  File.write(filename, { servers: $global_app_services }.to_json)
 end
 
 module AzureAppService
@@ -451,10 +485,18 @@ module AzureAppService
         end
 
         all_app_services.concat(app_services)
+
+        # Periodically save to file
+        if all_app_services.size >= SAVE_INTERVAL
+          append_app_service_to_file('azure_app_services.json', all_app_services)
+          all_app_services.clear
+        end  
       end
     end
 
-    puts ({ servers: all_app_services }).to_json
+    append_app_service_to_file('azure_app_services.json', all_app_services) unless all_app_services.empty?
+
+    puts ({ servers: $global_app_services }).to_json
   end
 end
 
@@ -478,3 +520,8 @@ class VMFetcher
     puts "Use the help flag -h to show the available commands."
   end
 end
+
+
+# Remove generated files after processing is done
+File.delete('azure_vms.json') if File.exist?('azure_vms.json')
+File.delete('azure_app_services.json') if File.exist?('azure_app_services.json')

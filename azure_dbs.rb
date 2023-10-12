@@ -145,12 +145,12 @@ module AzureDBServer
     custom_fields[:az_id] = server["id"]
     
     db_server = {}
-    db_server[:host_name] = server["name"] || server[:name] 
+    db_server[:host_name] = server["name"] || server[:name]
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
-    db_server["fqdn"] = fqdn if fqdn
-    db_server["environment"] = extract_environment_tag( server["tags"] ) if server["tags"]
-    custom_fields.merge!( extract_azure_tags_as_custom_fields( server["tags"] )) if server["tags"]
-    db_server["custom_fields"] = custom_fields
+    db_server[:fqdn] = fqdn if fqdn
+    db_server[:environment] = extract_environment_tag(server["tags"]) if server["tags"]
+    custom_fields.merge!(extract_azure_tags_as_custom_fields(server["tags"])) if server["tags"]
+    db_server[:custom_fields] = custom_fields
     db_server
   end
 
@@ -292,9 +292,9 @@ class DBFetcher
   extend AzureElasticPool
 
   def self.sync_to_tidal_portal(data, type)
-    file_path = "/tmp/tidal_#{type}_data.json"
+    # file_path = "/tmp/tidal_#{type}_data.json"
     # Temporary file creation for Windows Run
-    # file_path = "#{Dir.pwd}/tidal_#{type}_data.json"
+    file_path = "#{Dir.pwd}/tidal_#{type}_data-tmp.json"
     File.write(file_path, JSON.dump({ "#{type}": [data].flatten }))
     command_output = `tidal request -X POST "/api/v1/#{type}/sync" #{file_path}`
     match = command_output.match(/"id":\s*(\d+)/)
@@ -448,3 +448,8 @@ class DBFetcher
     puts "Use the help flag -h to show the available commands."
   end
 end
+
+# Remove generated files after processing is done
+File.delete('tidal_servers_data-tmp.json') if File.exist?('tidal_servers_data-tmp.json')
+File.delete('tidal_database_instances_data-tmp.json') if File.exist?('tidal_database_instances_data-tmp.json')
+
