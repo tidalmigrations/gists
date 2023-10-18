@@ -2,6 +2,7 @@
 
 require 'net/http'
 require 'json'
+require 'fileutils'
 
 module HttpUtil
   def basic_request(path:, query_params: {}, headers: {})
@@ -131,20 +132,6 @@ module AzureHelper
   end
 end
 
-
-SAVE_INTERVAL = 10  # Save after fetching # resources
-
-$global_vms = []
-
-def append_to_file(filename, data)
-  $global_vms.concat(data)
-
-  # Print to visualize the data being appended
-  # STDERR.puts "Appending to file: #{data.to_json}"
-
-  File.write(filename, { servers: $global_vms }.to_json)
-end
-
 module AzureVM
   include AzureHelper
   # Network API: https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get?tabs=HTTP
@@ -263,7 +250,7 @@ module AzureVM
       {
         host_name: vm["name"],
         location: vm["location"],
-        ip_addresses: private_ips.concat(public_ips).map{|ip| {address: ip}},
+        ip_addresses: private_ips + public_ips,
         fqdn: fqdn_value,
         assigned_id: vm["id"],
         ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"), 
@@ -379,19 +366,11 @@ module AzureVM
         end
 
         all_vms.concat(vms)
-
-        # Periodically save to file
-        if all_vms.size >= SAVE_INTERVAL
-            append_to_file('azure_vms.json', all_vms)
-            all_vms.clear
-        end    
       end
     end
-    append_to_file('azure_vms.json', all_vms) unless all_vms.empty?
 
-    # Print all VMs to STDOUT for tidal sync
-    # final_vms = JSON.parse(File.read('azure_vms.json'))
-    puts ({ servers: $global_vms }).to_json
+    # puts ({ servers: all_vms }).to_json
+    { servers: all_vms }
   end
 
   private
@@ -401,17 +380,6 @@ module AzureVM
   def get_token
     @@AZURE_TOKEN ||= ENV["AZURE_TOKEN"] || `az account get-access-token --query accessToken --output tsv`.strip
   end
-end
-
-$global_app_services = []
-
-def append_app_service_to_file(filename, data)
-  $global_app_services.concat(data)
-
-  # Print to visualize the data being appended
-  # STDERR.puts "Appending to file: #{data.to_json}"
-  
-  File.write(filename, { servers: $global_app_services }.to_json)
 end
 
 module AzureAppService
@@ -436,7 +404,7 @@ module AzureAppService
   def get_app_service_details(app_service)
     fqdn = app_service.dig("properties", "defaultHostName") || 'N/A'
 
-    tags = app_service["tags"] ? extract_azure_tags_as_custom_fields(app_service["tags"]) : {}
+    custom_fields_app_service = app_service["tags"] ? extract_azure_tags_as_custom_fields(app_service["tags"]) : {}
     environment = extract_environment_tag(app_service["tags"]) if app_service["tags"]
   
     {
@@ -456,7 +424,7 @@ module AzureAppService
         operating_system_name: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows" || "N/A",
         az_resource: app_service["type"],
         az_location: app_service["location"]
-      }.merge(tags)
+      }.merge(custom_fields_app_service)
     }
   end
   
@@ -485,43 +453,84 @@ module AzureAppService
         end
 
         all_app_services.concat(app_services)
-
-        # Periodically save to file
-        if all_app_services.size >= SAVE_INTERVAL
-          append_app_service_to_file('azure_app_services.json', all_app_services)
-          all_app_services.clear
-        end  
       end
     end
 
-    append_app_service_to_file('azure_app_services.json', all_app_services) unless all_app_services.empty?
-
-    puts ({ servers: $global_app_services }).to_json
+    # puts ({ servers: all_app_services }).to_json
+    { servers: all_app_services }
   end
 end
-
 
 class VMFetcher
   extend AzureVM
   extend AzureAppService
-
-  case ARGV[0]
-  when nil
-    pull_from_azure_vm
-    pull_from_azure_app_service
-  when "-h"
-    puts <<~EOT
-        Azure VM and App Service Fetching Menu:
-         cmd | inputs        | description
-             | -             | fetch all VMs and App Services across subscriptions and resource groups
-          -h | -             | print help menu
-    EOT
-  else
-    puts "Use the help flag -h to show the available commands."
+  
+  OUTPUT_DIRECTORY = 'output_files'
+  FileUtils.mkdir_p(OUTPUT_DIRECTORY)
+  
+  def self.save_to_file(data, filename)
+    file_path = "#{OUTPUT_DIRECTORY}/#{filename}"
+    File.write(file_path, JSON.pretty_generate({ "servers": data }))
+    file_path
   end
+  
+  def self.sync_to_tidal(file_path)
+    system("tidal sync servers < #{file_path}")
+  end
+  
+  def self.execute
+    # help menu 
+    if ARGV.include?("-h")
+      puts <<~EOT
+        Azure VM and App Service Fetching Menu:
+         cmd            | description
+                        | fetch all VMs and App Services across subscriptions and resource groups,
+                        | and sync everything to the Tidal portal.
+          -sync-page num | sync data to Tidal in chunks of the specified number of items.
+          -h             | print this help menu.
+      EOT
+      return
+    end
+
+    all_data = []
+    
+    # Fetch, process VM data
+    vm_data = pull_from_azure_vm
+    if vm_data && vm_data[:servers] && vm_data[:servers].any?
+      all_data.concat(vm_data[:servers])
+    else
+      puts "No VM data to add."
+    end
+    
+    # Fetch, process App Service data
+    app_service_data = pull_from_azure_app_service
+    if app_service_data && app_service_data[:servers] && app_service_data[:servers].any?
+      all_data.concat(app_service_data[:servers])
+    else
+      puts "No App Service data to add."
+    end
+    
+    # Check -sync-page arg is provided and get its value
+    sync_page_index = ARGV.index('-sync-page')
+    sync_page_size = sync_page_index ? ARGV[sync_page_index + 1].to_i : all_data.size
+    
+    all_data.each_slice(sync_page_size).with_index do |slice, index|
+      file_path = save_to_file(slice, "temporary_sync_data.json")
+      sync_to_tidal(file_path)
+      FileUtils.rm(file_path)  # Delete temp file after syncing
+      puts "Synced #{[(index + 1) * sync_page_size, all_data.size].min} of #{all_data.size} entries to Tidal portal."
+    end
+
+    # Save fetcjed, processed data to file 
+    if all_data.any?
+      file_path = save_to_file(all_data, 'tidal_servers_data.json') # Directly pass the all_data array
+     
+      # Sync to Tidal
+      sync_to_tidal(file_path)
+    else
+      puts "No data to save or sync."
+    end
+  end  
+  execute
 end
-
-
-# Remove generated files after processing is done
-File.delete('azure_vms.json') if File.exist?('azure_vms.json')
-File.delete('azure_app_services.json') if File.exist?('azure_app_services.json')
+  

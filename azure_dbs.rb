@@ -447,7 +447,4 @@ class DBFetcher
   end
 end
 
-# Remove generated files after processing is done
-File.delete('tidal_servers_data-tmp.json') if File.exist?('tidal_servers_data-tmp.json')
-File.delete('tidal_database_instances_data-tmp.json') if File.exist?('tidal_database_instances_data-tmp.json')
 
