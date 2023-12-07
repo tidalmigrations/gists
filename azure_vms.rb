@@ -45,7 +45,7 @@ module HttpUtil
   def get_disk_size(disk_id)
     response = basic_request(
       path: disk_id,
-      query_params: { "api-version": "2023-04-02" }, 
+      query_params: { "api-version": "2023-04-02" },
       headers: {
         "Authorization" => "Bearer #{get_token}"
       }
@@ -110,7 +110,7 @@ module AzureHelper
       tags = tags.split(', ')
       tags.each do |t|
         k = "az_lbl_#{ t.split(': ')[0] }"
-        v = t.split(': ')[1] 
+        v = t.split(': ')[1]
         custom_fields[k] = v unless k.start_with?('environment')
       end
     elsif tags.is_a? Hash
@@ -140,8 +140,8 @@ module AzureVM
   COMPUTE_API_VERSION = "2023-07-01"
   include HttpUtil
   include JSON
- 
-  # How to get the list of sizes from Azure API, 
+
+  # How to get the list of sizes from Azure API,
   # curl -X GET \
   #  -H "Authorization: Bearer $AZURE_TOKEN" \
   #  "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/providers/Microsoft.Compute/locations/$LOCATION/vmSizes?api-version=$API_VERSION"
@@ -228,7 +228,7 @@ module AzureVM
         private_ip, public_ip, fqdn = get_vm_ip_addresses(subscription, nic["id"])
         private_ips += private_ip if private_ip
         public_ips += public_ip if public_ip
-        fqdn_value = fqdn if fqdn && fqdn != "N/A" && fqdn_value == "N/A" 
+        fqdn_value = fqdn if fqdn && fqdn != "N/A" && fqdn_value == "N/A"
       end
 
       # Print the FQDN to check if it's being retrieved correctly
@@ -253,18 +253,18 @@ module AzureVM
         ip_addresses: private_ips + public_ips,
         fqdn: fqdn_value,
         assigned_id: vm["id"],
-        ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"), 
-        cpu_count: vm.dig("properties", "hardwareProfile", "vmSize"), 
+        ram_allocated_gb: vm.dig("properties", "hardwareProfile", "vmSize"),
+        cpu_count: vm.dig("properties", "hardwareProfile", "vmSize"),
         vm_size: vm.dig("properties", "hardwareProfile", "vmSize"),
         storage_allocated_gb: total_storage_gb || "N/A",
         operating_system: vm.dig("properties", "storageProfile", "osDisk", "osType"),
         operating_system_version: vm.dig("properties", "storageProfile", "imageReference", "version"),
         # environment: vm["tags"] && vm["tags"]["Environment"],
-        zone: vm.dig("properties", "availabilitySet", "id"), 
+        zone: vm.dig("properties", "availabilitySet", "id"),
         az_resource: vm["type"],
         az_location: vm["location"],
         az_id: vm["id"],
-        state: vm.dig("properties", "provisioningState"), 
+        state: vm.dig("properties", "provisioningState"),
         custom_fields: custom_fields_from_tags,
         environment: environment
       }
@@ -327,15 +327,15 @@ module AzureVM
     subscriptions.each do |subscription|
       resource_groups = list_resource_groups(subscription)
       unless resource_groups.count == 0
-        STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}." 
+        STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}."
       end
 
       resource_groups.each do |resource_group|
         vms = get_vms(subscription, resource_group)
         unless vms.count == 0
-          STDERR.puts "=> Found #{vms.count} VMs in resource group #{resource_group}" 
+          STDERR.puts "=> Found #{vms.count} VMs in resource group #{resource_group}"
         end
-  
+
         vms.map! do |vm|
           size_details = get_vm_size_details(subscription, vm[:location], vm[:vm_size]) || {}
 
@@ -345,7 +345,7 @@ module AzureVM
           {
             host_name: vm[:host_name],
             ip_addresses: vm[:ip_addresses].is_a?(Array) ? vm[:ip_addresses].flatten.map{|addr| {address: addr}} : [{address: vm[:ip_addresses]}],
-            description: "Azure VM", 
+            description: "Azure VM",
             operating_system: vm[:operating_system] || "N/A",
             operating_system_version: vm[:operating_system_version] || "N/A",
             custom_fields: {
@@ -406,7 +406,7 @@ module AzureAppService
 
     custom_fields_app_service = app_service["tags"] ? extract_azure_tags_as_custom_fields(app_service["tags"]) : {}
     environment = extract_environment_tag(app_service["tags"]) if app_service["tags"]
-  
+
     {
       host_name: app_service["name"],
       location: app_service["location"],
@@ -427,7 +427,7 @@ module AzureAppService
       }.merge(custom_fields_app_service)
     }
   end
-  
+
 
   def pull_from_azure_app_service
     all_app_services = []
@@ -439,14 +439,14 @@ module AzureAppService
       subscriptions.each do |subscription|
         resource_groups = list_resource_groups(subscription)
         unless resource_groups.count == 0
-          STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}." 
+          STDERR.puts "=> Found #{resource_groups.count} resource groups in subscription #{subscription}."
         end
 
       resource_groups.each do |resource_group|
         app_services = list_app_services(subscription, resource_group)
         unless app_services.count == 0
-          STDERR.puts "=> Found #{app_services.count} App Services in resource group #{resource_group}" 
-        end        
+          STDERR.puts "=> Found #{app_services.count} App Services in resource group #{resource_group}"
+        end
 
         app_services.map! do |app_service|
           get_app_service_details(app_service)
@@ -464,22 +464,22 @@ end
 class VMFetcher
   extend AzureVM
   extend AzureAppService
-  
+
   OUTPUT_DIRECTORY = 'output_files'
   FileUtils.mkdir_p(OUTPUT_DIRECTORY)
-  
+
   def self.save_to_file(data, filename)
     file_path = "#{OUTPUT_DIRECTORY}/#{filename}"
     File.write(file_path, JSON.pretty_generate({ "servers": data }))
     file_path
   end
-  
+
   def self.sync_to_tidal(file_path)
     system("tidal sync servers < #{file_path}")
   end
-  
+
   def self.execute
-    # help menu 
+    # help menu
     if ARGV.include?("-h")
       puts <<~EOT
         Azure VM and App Service Fetching Menu:
@@ -493,7 +493,7 @@ class VMFetcher
     end
 
     all_data = []
-    
+
     # Fetch, process VM data
     vm_data = pull_from_azure_vm
     if vm_data && vm_data[:servers] && vm_data[:servers].any?
@@ -501,7 +501,7 @@ class VMFetcher
     else
       puts "No VM data to add."
     end
-    
+
     # Fetch, process App Service data
     app_service_data = pull_from_azure_app_service
     if app_service_data && app_service_data[:servers] && app_service_data[:servers].any?
@@ -509,11 +509,11 @@ class VMFetcher
     else
       puts "No App Service data to add."
     end
-    
+
     # Check -sync-page arg is provided and get its value
     sync_page_index = ARGV.index('-sync-page')
     sync_page_size = sync_page_index ? ARGV[sync_page_index + 1].to_i : all_data.size
-    
+
     all_data.each_slice(sync_page_size).with_index do |slice, index|
       file_path = save_to_file(slice, "temporary_sync_data.json")
       sync_to_tidal(file_path)
@@ -521,10 +521,10 @@ class VMFetcher
       puts "Synced #{[(index + 1) * sync_page_size, all_data.size].min} of #{all_data.size} entries to Tidal portal."
     end
 
-    # Save fetcjed, processed data to file 
+    # Save fetcjed, processed data to file
     if all_data.any?
       file_path = save_to_file(all_data, 'tidal_servers_data.json') # Directly pass the all_data array
-     
+
       # Sync to Tidal
       sync_to_tidal(file_path)
     else
@@ -533,4 +533,3 @@ class VMFetcher
   end  
   execute
 end
-  
