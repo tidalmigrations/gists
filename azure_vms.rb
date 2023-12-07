@@ -530,6 +530,6 @@ class VMFetcher
     else
       puts "No data to save or sync."
     end
-  end  
-  execute
+  end
+  #execute
 end
