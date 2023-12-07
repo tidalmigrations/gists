@@ -1,4 +1,3 @@
-#!/usr/bin/env ruby
 
 require 'net/http'
 require 'json'
@@ -9,6 +8,8 @@ module HttpUtil
       path:         path,
       query_params: query_params
     )
+    puts "PATH"
+    puts path
     request = Object.const_get("Net::HTTP::Get").new(path)
     headers.each { |k, v| request[k] = v }
     http.request(request)
@@ -25,6 +26,8 @@ module HttpUtil
     timeout: 60,
     basic_auth: []
   )
+  puts "PATH"
+  puts path
     raise ArgumentError, "Must provide a valid method: #{valid_methods}" unless valid_methods.include? method.downcase
 
     uri, http = get_uri_http(path:         path,
@@ -179,8 +182,6 @@ contact us at support@tidalcloud.com"
     end
   end
 
-  private
-
     def azure_api_request(method:, path:, query_params: {}, responses: [])
       response = make_request(method:       method,
                               path:         "#{base_url}#{path}",
@@ -221,23 +222,23 @@ contact us at support@tidalcloud.com"
     end
 end
 
-class Migrate
-  extend AzureMigrate
-
-  case ARGV[0]
-  when nil
-    pull_from_azure_migrate
-  when "-p"
-    list_assessment_projects
-  when "-h"
-    puts <<~EOT
-      Azure Migrate Assessment Project Server Export Menu:
-       cmd | inputs        | description
-           | -             | automatically start export
-        -p | -             | list all assessment projects currently in the specified Azure Resource Group
-        -h | -             | print help menu
-    EOT
-  else
-    puts "Use the help flag -h to show the availale commands."
-  end
-end
+#class Migrate
+#  extend AzureMigrate
+#
+#  case ARGV[0]
+#  when nil
+#    pull_from_azure_migrate
+#  when "-p"
+#    list_assessment_projects
+#  when "-h"
+#    puts <<~EOT
+#      Azure Migrate Assessment Project Server Export Menu:
+#       cmd | inputs        | description
+#           | -             | automatically start export
+#        -p | -             | list all assessment projects currently in the specified Azure Resource Group
+#        -h | -             | print help menu
+#    EOT
+#  else
+#    puts "Use the help flag -h to show the availale commands."
+#  end
+#end
