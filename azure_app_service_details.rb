@@ -7,24 +7,24 @@ module AzureAppServiceApi
   end
 
   def list_app_services(subscription, resource_group)
-    azure_request(base_site(subscription, resource_group), :get, "2022-09-01")["value"]
+    azure_site(subscription, resource_group, "/", :get, "2022-09-01")["value"]
   end
 
-  def list_service_plans(subscription)
-    azure_request "#{base_rg(subscription, resource_group)}/serverfarms"
+  def list_service_plans(subscription, resource_group)
+    azure_rg(subscription, resource_group, "/serverfarms")
   end
 
   def get_app_service(subscription, name, resource_group)
-    azure_request "#{base_site(subscription, resource_group)}/#{name}"
+    azure_site(subscription, resource_group, "/#{name}")
   end
 
   def connection_strings(subscription, resource_group, app_name)
-    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/connectionstrings/list", :post
+    azure_site(subscription, resource_group, "#{app_name}/config/connectionstrings/list", :post)
   end
 
   # currently not returning needed Appsettings values
   def list_app_configs(subscription, resource_group, app_name)
-    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/web"
+    azure_site(subscription, resource_group, "/#{app_name}/config/web")
     # returns similar result but appSettings empty as well
     # azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
     #               "Microsoft.Web/sites/#{app_name}/config"
@@ -32,13 +32,13 @@ module AzureAppServiceApi
 
   # currently not returning needed Appsettings values
   def app_settings(subscription, resource_group, app_name)
-    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/appsettings/list"
+    azure_site(subscription, resource_group, "/#{app_name}/config/appsettings/list")
   end
 
   # redundant, not needed, URL for this resource returned with app service object
   # also note, 'server farm' is analogous for 'service plan'
   def server_farms(subscription, resource_group, app_service_plan_name)
-    azure_request "#{base_rg(subscription, resource_group)}/serverfarms/#{app_service_plan_name}"
+    azure_rg subscription, resource_group, "serverfarms/#{app_service_plan_name}"
   end
 
   def app_service_service_plan(app_service)
@@ -51,8 +51,16 @@ module AzureAppServiceApi
   end
 
   # can only query with a worker_pool name value
-  def private_endpoint_connections(sub, resource_group, name)
-    azure_request "#{base_rg(sub, resource_group)}/hostingEnvironments/#{name}/privateEndpointConnections"
+  def private_endpoint_connections(subscription, resource_group, name)
+    azure_rg subscription, resource_group, "/hostingEnvironments/#{name}/privateEndpointConnections"
+  end
+
+  def azure_rg(subscription, resource_group, path)
+    azure_request "#{base_rg(subscription, resource_group)}/#{path}"
+  end
+
+  def azure_site(subscription, resource_group, path, method = :get, version = "2022-03-01")
+    azure_request "#{base_site(subscription, resource_group)}/#{path}", method, version
   end
 
   def base_site(subscription, resource_group)
