@@ -160,6 +160,18 @@ module AzureAppServiceDetails
       to the current working directory in the format of:
       <app-service-name>_<app-service-resource-group-name>.json
 
+
+      How to Use
+
+      First authentication and set a token with the azure-cli using:
+
+      az login
+      az account set --subscription <SUBSCRIPTION_ID>
+      export AZURE_TOKEN=$(az account get-access-token --query accessToken --output tsv)
+
+      Run the command as above, for example:
+
+      #{$0}  <subscription-id>
     USAGE
   end
 
