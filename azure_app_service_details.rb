@@ -2,6 +2,7 @@
 
 require "./azure_migrate.rb"
 require "./azure_vms.rb"
+require 'fileutils'
 
 module AzureAppServiceDetails
   include AzureMigrate
@@ -20,6 +21,7 @@ module AzureAppServiceDetails
 
   def list_app_configs(subscription, resource_group_name, app_name)
     azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config/web"
+    # returns similar result but appSettings empty as well
     #azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config"
   end
 
@@ -31,7 +33,7 @@ module AzureAppServiceDetails
     azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config/connectionstrings/list", :post
   end
 
-  # redundant, not needed
+  # redundant, not needed, URL for this resource returned with app service object
   def server_farms(subscription_id, group_name, app_service_plan_name)
     azure_request "/subscriptions/#{subscription_id}/resourceGroups/#{group_name}/providers/Microsoft.Web/serverfarms/#{app_service_plan_name}"
   end
@@ -54,14 +56,7 @@ module AzureAppServiceDetails
                             headers:      { "Authorization" => "Bearer #{get_token}" }).response.body)
   end
 
-  def make_request(method:,path:,
-    query_params: {},
-    body: {},
-    headers: {},
-    form: [],
-    ssl: true,
-    timeout: 60,
-    basic_auth: [])
+  def make_request(method:,path:, query_params: {}, body: {}, headers: {}, form: [], ssl: true, timeout: 60, basic_auth: [])
     raise ArgumentError, "Must provide a valid method: #{valid_methods}" unless valid_methods.include? method.downcase
 
     uri, http = get_uri_http(path:         path,
@@ -87,7 +82,7 @@ module AzureAppServiceDetails
       list_app_services(subscription, resource_group)
     end.flatten
   end
-  # TOOD temp added sub, broken signature
+
   def app_service_details(sub, app_service)
     app_service["service_plan"] = azure_request app_service["properties"]["serverFarmId"]
     app_service["app_connection_strings"] = connection_strings(sub, app_service["properties"]["resourceGroup"], app_service["name"])
@@ -97,13 +92,13 @@ module AzureAppServiceDetails
 
   def summary_app(app)
     site_config = app["properties"]["siteConfig"]
-    {name:               app["name"],
-     resource_group:     app["properties"]["resourceGroup"],
-     connection_strings: app["app_connection_strings"]["properties"].keys,
-     app_settings:       [site_config["appSettings"],
-                          app["properties"]["siteProperties"]["appSettings"]],
-     storage_accounts:   site_config["azureStorageAccounts"],
-     service_plan_sku:   app["service_plan"]["sku"]}
+    { name:               app["name"],
+      resource_group:     app["properties"]["resourceGroup"],
+      connection_strings: app["app_connection_strings"]["properties"].keys,
+      app_settings:       [site_config["appSettings"],
+                           app["properties"]["siteProperties"]["appSettings"]],
+      storage_accounts:   site_config["azureStorageAccounts"],
+      service_plan_sku:   app["service_plan"]["sku"] }
   end
 
   def output_details(app)
@@ -116,32 +111,32 @@ module AzureAppServiceDetails
     OUTPUT
   end
 
-  def app_service_file_output(app_service)
-    file_name = "#{app_service['name']}_#{app_service['properties']['resourceGroup']}.json"
+  def app_service_file_output(subscription, app_service)
+    dir = "subscription_#{subscription}_app_services"
+    FileUtils.mkdir_p dir
+    file_name = File.join dir, "#{app_service['name']}_#{app_service['properties']['resourceGroup']}.json"
     File.write(file_name, app_service.to_json)
     puts "Entire App Service resource and Service Plan written to #{file_name}"
   end
 
+  def get_details_and_output(subscription, app_service)
+    details = app_service_details(subscription, app_service)
+    app_service_file_output(subscription, details)
+    output_details(details)
+  end
+
   def output_all_app_services(subscription)
-    all_app_services(subscription).map do | app_service |
-      details = app_service_details(subscription, app_service)
-      app_service_file_output(details)
-      output_details(details)
+    all_app_services(subscription).map do |app_service|
+      get_details_and_output(subscription, app_service)
     end
   end
 
   def output_app_service(subscription, name)
-    selected = all_app_services(subscription).select { |app_service| app_service["name"] == name }.first
-    details = app_service_details(selected)
-    app_service_file_output(details)
-    output_details(details)
+    get_details_and_output(subscription, all_app_services(subscription).select { |app_service| app_service["name"] == name }.first)
   end
 
   def output_first_app_service(subscription)
-    first = all_app_services(subscription).first
-    details = app_service_details(first)
-    app_service_file_output(details)
-    output_details(details)
+    get_details_and_output(subscription, all_app_services(subscription).first)
   end
 
   # notes
@@ -155,16 +150,16 @@ module AzureAppServiceDetails
       Usage:
 
       Retrieve all App Service's in a given subscription:
-      #{$0}  <subscription-id>
+      #{$PROGRAM_NAME} <subscription-id>
 
 
       Retrieve a single App Service's:
-      #{$0}  <subscription-id> <app-service-name>
+      #{$PROGRAM_NAME} <subscription-id> <app-service-name>
 
 
-      The output will include a summary to Standard Output as well as a file written
-      to the current working directory in the format of:
-      <app-service-name>_<app-service-resource-group-name>.json
+      The output will include a summary to standard output as well as a file written
+      to the new directory in the current working directory in the format of:
+      ./subscription_<subscription-id>_app_services/<app-service-name>_<app-service-resource-group-name>.json
 
 
       How to Use
