@@ -18,8 +18,17 @@ module AzureAppServiceDetails
     azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{name}"
   end
 
+  def list_app_configs(subscription, resource_group_name, app_name)
+    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config/web"
+    #azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config"
+  end
+
   def app_settings(subscription, resource_group_name, app_name)
     azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config/appsettings/list"
+  end
+
+  def connection_strings(subscription, resource_group_name, app_name)
+    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{app_name}/config/connectionstrings/list", :post
   end
 
   # redundant, not needed
@@ -37,8 +46,8 @@ module AzureAppServiceDetails
     azure_request "/subscriptions/#{sub}/resourceGroups/#{resource_group}/providers/Microsoft.Web/hostingEnvironments/#{name}/privateEndpointConnections"
   end
 
-  def azure_request(path)
-    JSON.parse(make_request(method:       :get,
+  def azure_request(path, method = :get)
+    JSON.parse(make_request(method:       method,
                             path:         "#{base_url}#{path}",
                             body:         nil,
                             query_params: { "api-version": "2022-03-01" },
@@ -78,51 +87,44 @@ module AzureAppServiceDetails
       list_app_services(subscription, resource_group)
     end.flatten
   end
-
-  def app_service_details(app_service)
+  # TOOD temp added sub, broken signature
+  def app_service_details(sub, app_service)
     app_service["service_plan"] = azure_request app_service["properties"]["serverFarmId"]
+    app_service["app_connection_strings"] = connection_strings(sub, app_service["properties"]["resourceGroup"], app_service["name"])
+    app_service["app_configs"] = list_app_configs(sub, app_service["properties"]["resourceGroup"], app_service["name"])
     app_service
   end
 
-  def output_details(app)
+  def summary_app(app)
     site_config = app["properties"]["siteConfig"]
+    {name:               app["name"],
+     resource_group:     app["properties"]["resourceGroup"],
+     connection_strings: app["app_connection_strings"]["properties"].keys,
+     app_settings:       [site_config["appSettings"],
+                          app["properties"]["siteProperties"]["appSettings"]],
+     storage_accounts:   site_config["azureStorageAccounts"],
+     service_plan_sku:   app["service_plan"]["sku"]}
+  end
+
+  def output_details(app)
     puts <<~OUTPUT
 
-      ------------------------------------------
-      App Service
-      #{app["name"]}
+      #{JSON.pretty_generate(summary_app(app))}
 
-      Service Plan
-      #{app["service_plan"]["name"]}
-
-      Connection Strings
-      #{site_config["connectionStrings"]}
-
-      App Settings
-      #{site_config["appSettings"]}
-
-      Storage Accounts
-      #{site_config["azureStorageAccounts"]}
-
-      SKU
-      #{app["service_plan"]["sku"]}
       ------------------------------------------
 
     OUTPUT
   end
 
   def app_service_file_output(app_service)
-    file_name = "#{app_service["name"]}_#{app_service["properties"]["resourceGroup"]}.json"
+    file_name = "#{app_service['name']}_#{app_service['properties']['resourceGroup']}.json"
     File.write(file_name, app_service.to_json)
     puts "Entire App Service resource and Service Plan written to #{file_name}"
   end
 
-  # testing subscription
-  '4c1a8af4-85cb-44c7-9528-491d3848d341'
-
   def output_all_app_services(subscription)
     all_app_services(subscription).map do | app_service |
-      details = app_service_details(app_service)
+      details = app_service_details(subscription, app_service)
       app_service_file_output(details)
       output_details(details)
     end
@@ -141,6 +143,10 @@ module AzureAppServiceDetails
     app_service_file_output(details)
     output_details(details)
   end
+
+  # notes
+  # appsettings is blank - may not be possible? - https://github.com/MicrosoftDocs/azure-docs/issues/38698
+  # testing subscription '4c1a8af4-85cb-44c7-9528-491d3848d341'
 
   def output_usage
     puts <<~USAGE
@@ -178,7 +184,7 @@ module AzureAppServiceDetails
   def cli_execute
     case ARGV.length
     when 1
-      output_all_app_services ARGV[0]
+      output_all_app_services(ARGV[0])
     when 2
       output_app_service(ARGV[0], ARGV[1])
     else
