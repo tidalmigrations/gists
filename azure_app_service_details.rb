@@ -3,48 +3,42 @@ module AzureAppServiceApi
   require "net/http"
 
   def list_resource_groups(subscription)
-    azure_request("/subscriptions/#{subscription}/resourcegroups", :get, "2023-07-01")["value"]
+    azure_request("#{base_sub(subscription)}/resourcegroups", :get, "2023-07-01")["value"]
   end
 
-  def list_app_services(subscription, resource_group_name)
-    azure_request("/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites",
-                  :get, "2022-09-01")["value"]
+  def list_app_services(subscription, resource_group)
+    azure_request(base_site(subscription, resource_group), :get, "2022-09-01")["value"]
   end
 
-  def list_service_plans(subscription_id)
-    azure_request "/subscriptions/#{subscription_id}/providers/Microsoft.Web/serverfarms"
+  def list_service_plans(subscription)
+    azure_request "#{base_rg(subscription, resource_group)}/serverfarms"
   end
 
-  def get_app_service(subscription, name, resource_group_name)
-    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
-                  "Microsoft.Web/sites/#{name}"
+  def get_app_service(subscription, name, resource_group)
+    azure_request "#{base_site(subscription, resource_group)}/#{name}"
   end
 
-  def connection_strings(subscription, resource_group_name, app_name)
-    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
-                  "Microsoft.Web/sites/#{app_name}/config/connectionstrings/list", :post
+  def connection_strings(subscription, resource_group, app_name)
+    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/connectionstrings/list", :post
   end
 
   # currently not returning needed Appsettings values
-  def list_app_configs(subscription, resource_group_name, app_name)
-    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
-                  "Microsoft.Web/sites/#{app_name}/config/web"
+  def list_app_configs(subscription, resource_group, app_name)
+    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/web"
     # returns similar result but appSettings empty as well
     # azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
     #               "Microsoft.Web/sites/#{app_name}/config"
   end
 
   # currently not returning needed Appsettings values
-  def app_settings(subscription, resource_group_name, app_name)
-    azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
-                  "Microsoft.Web/sites/#{app_name}/config/appsettings/list"
+  def app_settings(subscription, resource_group, app_name)
+    azure_request "#{base_site(subscription, resource_group)}/#{app_name}/config/appsettings/list"
   end
 
   # redundant, not needed, URL for this resource returned with app service object
   # also note, 'server farm' is analogous for 'service plan'
-  def server_farms(subscription_id, group_name, app_service_plan_name)
-    azure_request "/subscriptions/#{subscription_id}/resourceGroups/#{group_name}/providers/" \
-                  "Microsoft.Web/serverfarms/#{app_service_plan_name}"
+  def server_farms(subscription, resource_group, app_service_plan_name)
+    azure_request "#{base_rg(subscription, resource_group)}/serverfarms/#{app_service_plan_name}"
   end
 
   def app_service_service_plan(app_service)
@@ -53,13 +47,24 @@ module AzureAppServiceApi
 
   # empty as of now with current demo setup
   def worker_pools(sub)
-    azure_request "/subscriptions/#{sub}/providers/Microsoft.Web/hostingEnvironments"
+    azure_request "#{base_sub(sub)}/providers/Microsoft.Web/hostingEnvironments"
   end
 
   # can only query with a worker_pool name value
   def private_endpoint_connections(sub, resource_group, name)
-    azure_request "/subscriptions/#{sub}/resourceGroups/#{resource_group}/providers/" \
-                  "Microsoft.Web/hostingEnvironments/#{name}/privateEndpointConnections"
+    azure_request "#{base_rg(sub, resource_group)}/hostingEnvironments/#{name}/privateEndpointConnections"
+  end
+
+  def base_site(subscription, resource_group)
+    "#{base_rg(subscription, resource_group)}/sites"
+  end
+
+  def base_rg(subscription, resource_group)
+    "#{base_sub(subscription)}/resourceGroups/#{resource_group}/providers/Microsoft.Web"
+  end
+
+  def base_sub(subscription)
+    "/subscriptions/#{subscription}"
   end
 
   def azure_request(path, method = :get, version = "2022-03-01")
