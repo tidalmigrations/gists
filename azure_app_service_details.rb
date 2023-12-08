@@ -1,3 +1,5 @@
+#!/bin/env ruby
+
 require "./azure_migrate.rb"
 require "./azure_vms.rb"
 
@@ -5,11 +7,14 @@ module AzureAppServiceDetails
   include AzureMigrate
   include AzureAppService
 
+  # to get resource groups
+  include AzureVM
+
   def list_service_plans(subscription_id)
     azure_request "/subscriptions/#{subscription_id}/providers/Microsoft.Web/serverfarms"
   end
 
-  def get_app_service(name, resource_group_name)
+  def get_app_service(subscription, name, resource_group_name)
     azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/Microsoft.Web/sites/#{name}"
   end
 
@@ -68,50 +73,107 @@ module AzureAppServiceDetails
     http.request(request)
   end
 
-  def subscription
-    '4c1a8af4-85cb-44c7-9528-491d3848d341'
+  def all_app_services(subscription)
+    list_resource_groups(subscription).map do |resource_group|
+      list_app_services(subscription, resource_group)
+    end.flatten
   end
 
-  def resource_group
-    "app-service-demo"
+  def app_service_details(app_service)
+    app_service["service_plan"] = azure_request app_service["properties"]["serverFarmId"]
+    app_service
   end
 
-  def all_app_services
-    list_app_services(subscription, resource_group)
-  end
-
-  def first_name_and_resource_group
-    all = all_app_services
-    [all.first["name"], all.first["properties"]["resourceGroup"]]
-  end
-
-  def app_service_details(app_service_name, resource_group_name)
-    app = get_app_service(app_service_name, resource_group_name)
-    service_plan = azure_request app["properties"]["serverFarmId"]
-    [app, service_plan]
-  end
-
-  def output_details(app, service_plan)
+  def output_details(app)
     site_config = app["properties"]["siteConfig"]
-    pp "APP SERVICE RESOURCE ---#{app["name"]}------"
-    pp app
-    pp "SERVICE PLAN ---------------------------"
-    pp service_plan
-    puts "\n\n"
-    pp "CONNECTION STRINGS ---------------------"
-    pp site_config["connectionStrings"]
-    pp "APP Settings ---------------------------"
-    pp site_config["appSettings"]
-    pp "STORAGE ACCOUNTS -----------------------"
-    pp site_config["azureStorageAccounts"]
-    pp "SKU ----------------------------------- "
-    pp service_plan["sku"]
+    puts <<~OUTPUT
+
+      ------------------------------------------
+      App Service
+      #{app["name"]}
+
+      Service Plan
+      #{app["service_plan"]["name"]}
+
+      Connection Strings
+      #{site_config["connectionStrings"]}
+
+      App Settings
+      #{site_config["appSettings"]}
+
+      Storage Accounts
+      #{site_config["azureStorageAccounts"]}
+
+      SKU
+      #{app["service_plan"]["sku"]}
+      ------------------------------------------
+
+    OUTPUT
   end
 
-  def first_details
-    name, resource_group = first_name_and_resource_group
-    details = app_service_details(name, resource_group)
-    File.write("#{name}_#{resource_group}.json", details.to_json)
-    output_details(*details)
+  def app_service_file_output(app_service)
+    file_name = "#{app_service["name"]}_#{app_service["properties"]["resourceGroup"]}.json"
+    File.write(file_name, app_service.to_json)
+    puts "Entire App Service resource and Service Plan written to #{file_name}"
+  end
+
+  # testing subscription
+  '4c1a8af4-85cb-44c7-9528-491d3848d341'
+
+  def output_all_app_services(subscription)
+    all_app_services(subscription).map do | app_service |
+      details = app_service_details(app_service)
+      app_service_file_output(details)
+      output_details(details)
+    end
+  end
+
+  def output_app_service(subscription, name)
+    selected = all_app_services(subscription).select { |app_service| app_service["name"] == name }.first
+    details = app_service_details(selected)
+    app_service_file_output(details)
+    output_details(details)
+  end
+
+  def output_first_app_service(subscription)
+    first = all_app_services(subscription).first
+    details = app_service_details(first)
+    app_service_file_output(details)
+    output_details(details)
+  end
+
+  def output_usage
+    puts <<~USAGE
+      Retrieve information from Azure for App Service's and their Service Plans.
+
+      Usage:
+
+      Retrieve all App Service's in a given subscription:
+      #{$0}  <subscription-id>
+
+
+      Retrieve a single App Service's:
+      #{$0}  <subscription-id> <app-service-name>
+
+
+      The output will include a summary to Standard Output as well as a file written
+      to the current working directory in the format of:
+      <app-service-name>_<app-service-resource-group-name>.json
+
+    USAGE
+  end
+
+  def cli_execute
+    case ARGV.length
+    when 1
+      output_all_app_services ARGV[0]
+    when 2
+      output_app_service(ARGV[0], ARGV[1])
+    else
+      output_usage
+    end
   end
 end
+
+include AzureAppServiceDetails
+cli_execute
