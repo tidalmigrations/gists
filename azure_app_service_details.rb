@@ -2,63 +2,44 @@
 module AzureAppServiceApi
   require "net/http"
 
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/resources/resource-groups/list?view=rest-resources-2021-04-01
   def list_resource_groups(subscription)
     azure_request("#{base_sub(subscription)}/resourcegroups", :get, "2023-07-01")["value"]
   end
 
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/list?view=rest-appservice-2022-03-01
   def list_app_services(subscription, resource_group)
     azure_site(subscription, resource_group, "/", :get, "2022-09-01")["value"]
   end
 
-  def list_service_plans(subscription, resource_group)
-    azure_rg(subscription, resource_group, "/serverfarms")
-  end
-
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/get?view=rest-appservice-2022-03-01
   def get_app_service(subscription, name, resource_group)
     azure_site(subscription, resource_group, "/#{name}")
   end
 
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/list-connection-strings?view=rest-appservice-2022-03-01
   def connection_strings(subscription, resource_group, app_name)
     azure_site(subscription, resource_group, "#{app_name}/config/connectionstrings/list", :post)
   end
 
-  # currently not returning needed Appsettings values
-  def list_app_configs(subscription, resource_group, app_name)
-    azure_site(subscription, resource_group, "/#{app_name}/config/web")
-    # returns similar result but appSettings empty as well
-    # azure_request "/subscriptions/#{subscription}/resourceGroups/#{resource_group_name}/providers/" \
-    #               "Microsoft.Web/sites/#{app_name}/config"
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/list-application-settings?view=rest-appservice-2022-03-01
+  def list_app_settings(subscription, resource_group, app_name)
+    azure_site(subscription, resource_group, "/#{app_name}/config/appsettings/list", :post)
   end
 
-  # currently not returning needed Appsettings values
-  def app_settings(subscription, resource_group, app_name)
-    azure_site(subscription, resource_group, "/#{app_name}/config/appsettings/list")
-  end
-
-  # redundant, not needed, URL for this resource returned with app service object
-  # also note, 'server farm' is analogous for 'service plan'
-  def server_farms(subscription, resource_group, app_service_plan_name)
-    azure_rg subscription, resource_group, "serverfarms/#{app_service_plan_name}"
-  end
-
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/app-service-plans/get?view=rest-appservice-2022-03-01&tabs=HTTP
   def app_service_service_plan(app_service)
     azure_request app_service["properties"]["serverFarmId"]
   end
 
-  # empty as of now with current demo setup
-  def worker_pools(sub)
-    azure_request "#{base_sub(sub)}/providers/Microsoft.Web/hostingEnvironments"
-  end
-
-  # can only query with a worker_pool name value
-  def private_endpoint_connections(subscription, resource_group, name)
-    azure_rg subscription, resource_group, "/hostingEnvironments/#{name}/privateEndpointConnections"
-  end
-
+  # Makes a request to Azure API at a base path of:
+  # /subscriptions/:id/resourceGroups/:name/providers/Microsoft.Web
   def azure_rg(subscription, resource_group, path)
     azure_request "#{base_rg(subscription, resource_group)}/#{path}"
   end
 
+  # Makes a request to Azure API at a base path of:
+  # /subscriptions/:id/resourceGroups/:name/providers/Microsoft.Web/sites
   def azure_site(subscription, resource_group, path, method = :get, version = "2022-03-01")
     azure_request "#{base_site(subscription, resource_group)}/#{path}", method, version
   end
@@ -126,7 +107,7 @@ module AzureAppServiceDetails
     app_service["service_plan"] = app_service_service_plan(app_service)
     app_service["app_connection_strings"] = connection_strings(sub, app_service["properties"]["resourceGroup"],
                                                                app_service["name"])
-    app_service["app_configs"] = list_app_configs(sub, app_service["properties"]["resourceGroup"], app_service["name"])
+    app_service["app_settings"] = list_app_settings(sub, app_service["properties"]["resourceGroup"], app_service["name"])
     app_service
   end
 
@@ -135,8 +116,7 @@ module AzureAppServiceDetails
     { name:               app["name"],
       resource_group:     app["properties"]["resourceGroup"],
       connection_strings: app["app_connection_strings"]["properties"].keys,
-      app_settings:       [site_config["appSettings"],
-                           app["properties"]["siteProperties"]["appSettings"]],
+      app_settings:       app["app_settings"]["properties"].keys,
       storage_accounts:   site_config["azureStorageAccounts"],
       service_plan_sku:   app["service_plan"]["sku"] }
   end
