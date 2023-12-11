@@ -18,7 +18,7 @@ module AzureAppServiceApi
   end
 
   # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/list-connection-strings?view=rest-appservice-2022-03-01
-  def connection_strings(subscription, resource_group, app_name)
+  def list_connection_strings(subscription, resource_group, app_name)
     azure_site(subscription, resource_group, "#{app_name}/config/connectionstrings/list", :post)
   end
 
@@ -30,12 +30,6 @@ module AzureAppServiceApi
   # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/app-service-plans/get?view=rest-appservice-2022-03-01&tabs=HTTP
   def app_service_service_plan(app_service)
     azure_request app_service["properties"]["serverFarmId"]
-  end
-
-  # Makes a request to Azure API at a base path of:
-  # /subscriptions/:id/resourceGroups/:name/providers/Microsoft.Web
-  def azure_rg(subscription, resource_group, path)
-    azure_request "#{base_rg(subscription, resource_group)}/#{path}"
   end
 
   # Makes a request to Azure API at a base path of:
@@ -105,9 +99,11 @@ module AzureAppServiceDetails
 
   def app_service_details(sub, app_service)
     app_service["service_plan"] = app_service_service_plan(app_service)
-    app_service["app_connection_strings"] = connection_strings(sub, app_service["properties"]["resourceGroup"],
-                                                               app_service["name"])
-    app_service["app_settings"] = list_app_settings(sub, app_service["properties"]["resourceGroup"], app_service["name"])
+    app_service["app_connection_strings"] = list_connection_strings(sub, app_service["properties"]["resourceGroup"],
+                                                                    app_service["name"])
+    app_service["app_settings"] = list_app_settings(sub,
+                                                    app_service["properties"]["resourceGroup"],
+                                                    app_service["name"])
     app_service
   end
 
