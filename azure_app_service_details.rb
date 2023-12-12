@@ -108,12 +108,10 @@ module AzureAppServiceDetails
   end
 
   def summary_app(app)
-    site_config = app["properties"]["siteConfig"]
     { name:               app["name"],
       resource_group:     app["properties"]["resourceGroup"],
       connection_strings: app["app_connection_strings"]["properties"].keys,
       app_settings:       app["app_settings"]["properties"].keys,
-      storage_accounts:   site_config["azureStorageAccounts"],
       service_plan_sku:   app["service_plan"]["sku"] }
   end
 
