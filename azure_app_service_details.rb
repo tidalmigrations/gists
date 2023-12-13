@@ -1,4 +1,4 @@
-#!/bin/env ruby
+#!/usr/bin/env ruby
 module AzureAppServiceApi
   require "net/http"
 
