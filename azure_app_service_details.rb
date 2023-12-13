@@ -165,10 +165,21 @@ module AzureAppServiceDetails
       service_plan_sku:   app["service_plan"]["sku"] }
   end
 
-  def output_details(app)
-    puts <<~OUTPUT
+  def summary_db(db)
+    sku = if db["sku"]
+            db["sku"]
+          elsif db["properties"]["sku"]
+            db["properties"]["sku"]
+          end
+    { name: db["name"],
+      sku:  sku }
+  end
 
-      #{JSON.pretty_generate(summary_app(app))}
+  def output_details(data)
+    puts <<~OUTPUT
+      ------------------------------------------
+
+      #{JSON.pretty_generate(data)}
 
       ------------------------------------------
 
@@ -185,7 +196,9 @@ module AzureAppServiceDetails
 
   def list_and_output_all_databases(subscription)
     database_types.map do |type|
-      databases_file_output(subscription, public_send("list_#{type}", subscription), type)
+      databases = public_send("list_#{type}", subscription)
+      databases_file_output(subscription, databases, type)
+      databases["value"].map { |db| output_details(summary_db(db)) }
     end
   end
 
@@ -194,7 +207,13 @@ module AzureAppServiceDetails
     FileUtils.mkdir_p dir
     file_name = File.join dir, "#{type}.json"
     File.write(file_name, JSON.pretty_generate(databases))
-    puts "All #{type} databases written to #{file_name}"
+
+    if databases["value"].empty?
+      puts "No #{type} databases, API results written to #{file_name}"
+      puts "\n"
+    else
+      puts "All #{type} databases written to #{file_name}"
+    end
   end
 
   def app_service_file_output(subscription, app_service)
@@ -208,7 +227,7 @@ module AzureAppServiceDetails
   def get_details_and_output(subscription, app_service)
     details = app_service_details(subscription, app_service)
     app_service_file_output(subscription, details)
-    output_details(details)
+    output_details(summary_app(details))
   end
 
   def output_app_services_and_databases(subscription)
@@ -247,7 +266,7 @@ class Cli
       Retrieve a single App Service's:
       #{$PROGRAM_NAME} <subscription-id> <app-service-name>
 
-      The output will include a summary to standard output as well as a files written
+      The output will include a summary to standard output as well as files written
       to the new directory in the current working directory in the format of:
       ./subscription_<subscription-id>/app_services/<app-service-name>_<app-service-resource-group-name>.json
       ./subscription_<subscription-id>/databases/<database-type>.json
