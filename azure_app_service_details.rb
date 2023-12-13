@@ -97,13 +97,36 @@ module AzureAppServiceDetails
     end.flatten
   end
 
+  # Given a string will return the string up to the first , or ; character.
+  # Another option is to target passwords specifically with something such as "(.*?),password(.*)"
+  def remove_passwords(input)
+    matches = input.match("(.*?)[,;](.*)")
+    matches ? matches[1] : input
+  end
+
+  def redact_app_settings(app_settings)
+    redacted = {}
+    app_settings["properties"].map { |name, value| redacted[name] = remove_passwords(value) }
+    app_settings["properties"] = redacted
+    app_settings
+  end
+
+  def redact_connection_strings(connection_strings)
+    connection_strings["properties"].map do |name, object|
+      object["value"] = remove_passwords(object["value"])
+      object
+    end
+    connection_strings
+  end
+
   def app_service_details(sub, app_service)
     app_service["service_plan"] = app_service_service_plan(app_service)
-    app_service["app_connection_strings"] = list_connection_strings(sub, app_service["properties"]["resourceGroup"],
-                                                                    app_service["name"])
-    app_service["app_settings"] = list_app_settings(sub,
-                                                    app_service["properties"]["resourceGroup"],
-                                                    app_service["name"])
+    app_service["app_connection_strings"] = redact_connection_strings(list_connection_strings(sub,
+                                                                                              app_service["properties"]["resourceGroup"],
+                                                                                              app_service["name"]))
+    app_service["app_settings"] = redact_app_settings(list_app_settings(sub,
+                                                                        app_service["properties"]["resourceGroup"],
+                                                                        app_service["name"]))
     app_service
   end
 
