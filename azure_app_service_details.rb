@@ -152,7 +152,7 @@ module AzureAppServiceDetails
     dir = "subscription_#{subscription}_app_services"
     FileUtils.mkdir_p dir
     file_name = File.join dir, "#{app_service['name']}_#{app_service['properties']['resourceGroup']}.json"
-    File.write(file_name, app_service.to_json)
+    File.write(file_name, JSON.pretty_generate(app_service))
     puts "Entire App Service resource and Service Plan written to #{file_name}"
   end
 
