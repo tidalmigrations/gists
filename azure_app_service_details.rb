@@ -118,6 +118,38 @@ module AzureAppServiceDetails
   require "json"
   include AzureAppServiceApi
 
+  def required_role_json
+    <<~ROLE
+      {
+          "properties": {
+              "roleName": "AppServiceAndDatabasesRead",
+              "description": "Read access to several Databases resources, and App Services including sensitive information.",
+              "assignableScopes": [
+                  "/subscriptions/ADD-SUBSCRIPTION-ID-HERE"
+              ],
+              "permissions": [
+                  {
+                      "actions": [
+                          "Microsoft.Resources/subscriptions/resourceGroups/read",
+                          "Microsoft.Web/sites/Read",
+                          "Microsoft.Web/sites/config/list/Action",
+                          "Microsoft.Web/serverfarms/Read",
+                          "Microsoft.Sql/managedInstances/read",
+                          "Microsoft.Sql/servers/read",
+                          "Microsoft.DBforPostgreSQL/flexibleServers/read",
+                          "Microsoft.DBforMySQL/flexibleServers/read",
+                          "Microsoft.Cache/redis/read"
+                      ],
+                      "notActions": [],
+                      "dataActions": [],
+                      "notDataActions": []
+                  }
+              ]
+          }
+      }
+    ROLE
+  end
+
   def all_app_services(subscription)
     list_resource_groups(subscription).map do |resource_group|
       list_app_services(subscription, resource_group["name"])
@@ -270,6 +302,12 @@ class Cli
       to the new directory in the current working directory in the format of:
       ./subscription_<subscription-id>/app_services/<app-service-name>_<app-service-resource-group-name>.json
       ./subscription_<subscription-id>/databases/<database-type>.json
+
+      Required Azure API Access
+
+      The following role includes all of the needed permissions to run this script:
+
+      #{required_role_json}
     USAGE
   end
 
