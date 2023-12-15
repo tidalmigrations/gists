@@ -1,4 +1,4 @@
-#!/bin/env ruby
+#!/usr/bin/env ruby
 module AzureAppServiceApi
   require "net/http"
 
@@ -25,6 +25,33 @@ module AzureAppServiceApi
   # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/web-apps/list-application-settings?view=rest-appservice-2022-03-01
   def list_app_settings(subscription, resource_group, app_name)
     azure_site(subscription, resource_group, "/#{app_name}/config/appsettings/list", :post)
+  end
+
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/sql/managed-instances/list?view=rest-sql-2021-11-01&tabs=HTTP
+  def list_database_managed_instances(subscription)
+    azure_request "#{base_sub(subscription)}/providers/Microsoft.Sql/managedInstances", :get, "2021-11-01"
+  end
+
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/sql/servers/list?view=rest-sql-2021-11-01&tabs=HTTP
+  def list_database_servers(subscription)
+    azure_request "#{base_sub(subscription)}/providers/Microsoft.Sql/servers", :get, "2021-11-01"
+  end
+
+  # API Documentation -
+  # https://learn.microsoft.com/en-us/rest/api/postgresql/flexibleserver/servers/list?view=rest-postgresql-flexibleserver-2022-12-01&tabs=HTTP
+  def list_postgres_flexible_servers(subscription)
+    azure_request "#{base_sub(subscription)}/providers/Microsoft.DBforPostgreSQL/flexibleServers", :get, "2022-12-01"
+  end
+
+  # API Documentation -
+  # https://learn.microsoft.com/en-us/rest/api/mysql/flexibleserver/servers/list?view=rest-mysql-flexibleserver-2023-06-01-preview&tabs=HTTP
+  def list_mysql_flexible_servers(subscription)
+    azure_request "#{base_sub(subscription)}/providers/Microsoft.DBforMySQL/flexibleServers", :get, "2023-06-01-preview"
+  end
+
+  # API Documentation - https://learn.microsoft.com/en-us/rest/api/redis/redis/list?view=rest-redis-2018-03-01&tabs=HTTP
+  def list_redis_databases(subscription)
+    azure_request "#{base_sub(subscription)}/providers/Microsoft.Cache/Redis", :get, "2018-03-01"
   end
 
   # API Documentation - https://learn.microsoft.com/en-us/rest/api/appservice/app-service-plans/get?view=rest-appservice-2022-03-01&tabs=HTTP
@@ -91,6 +118,38 @@ module AzureAppServiceDetails
   require "json"
   include AzureAppServiceApi
 
+  def required_role_json
+    <<~ROLE
+      {
+          "properties": {
+              "roleName": "AppServiceAndDatabasesRead",
+              "description": "Read access to several Databases resources, and App Services including sensitive information.",
+              "assignableScopes": [
+                  "/subscriptions/ADD-SUBSCRIPTION-ID-HERE"
+              ],
+              "permissions": [
+                  {
+                      "actions": [
+                          "Microsoft.Resources/subscriptions/resourceGroups/read",
+                          "Microsoft.Web/sites/Read",
+                          "Microsoft.Web/sites/config/list/Action",
+                          "Microsoft.Web/serverfarms/Read",
+                          "Microsoft.Sql/managedInstances/read",
+                          "Microsoft.Sql/servers/read",
+                          "Microsoft.DBforPostgreSQL/flexibleServers/read",
+                          "Microsoft.DBforMySQL/flexibleServers/read",
+                          "Microsoft.Cache/redis/read"
+                      ],
+                      "notActions": [],
+                      "dataActions": [],
+                      "notDataActions": []
+                  }
+              ]
+          }
+      }
+    ROLE
+  end
+
   def all_app_services(subscription)
     list_resource_groups(subscription).map do |resource_group|
       list_app_services(subscription, resource_group["name"])
@@ -138,18 +197,59 @@ module AzureAppServiceDetails
       service_plan_sku:   app["service_plan"]["sku"] }
   end
 
-  def output_details(app)
-    puts <<~OUTPUT
+  def summary_db(db)
+    sku = if db["sku"]
+            db["sku"]
+          elsif db["properties"]["sku"]
+            db["properties"]["sku"]
+          end
+    { name: db["name"],
+      sku:  sku }
+  end
 
-      #{JSON.pretty_generate(summary_app(app))}
+  def output_details(data)
+    puts <<~OUTPUT
+      ------------------------------------------
+
+      #{JSON.pretty_generate(data)}
 
       ------------------------------------------
 
     OUTPUT
   end
 
+  def database_types
+    %w[database_managed_instances database_servers postgres_flexible_servers mysql_flexible_servers redis_databases]
+  end
+
+  def database_types_pretty
+    database_types.map { |db| db.gsub!("_", " ").capitalize }.join(", ")
+  end
+
+  def list_and_output_all_databases(subscription)
+    database_types.map do |type|
+      databases = public_send("list_#{type}", subscription)
+      databases_file_output(subscription, databases, type)
+      databases["value"].map { |db| output_details(summary_db(db)) }
+    end
+  end
+
+  def databases_file_output(subscription, databases, type)
+    dir = File.join "subscription_#{subscription}", "databases"
+    FileUtils.mkdir_p dir
+    file_name = File.join dir, "#{type}.json"
+    File.write(file_name, JSON.pretty_generate(databases))
+
+    if databases["value"].empty?
+      puts "No #{type} databases, API results written to #{file_name}"
+      puts "\n"
+    else
+      puts "All #{type} databases written to #{file_name}"
+    end
+  end
+
   def app_service_file_output(subscription, app_service)
-    dir = "subscription_#{subscription}_app_services"
+    dir = File.join "subscription_#{subscription}", "app_services"
     FileUtils.mkdir_p dir
     file_name = File.join dir, "#{app_service['name']}_#{app_service['properties']['resourceGroup']}.json"
     File.write(file_name, JSON.pretty_generate(app_service))
@@ -159,13 +259,14 @@ module AzureAppServiceDetails
   def get_details_and_output(subscription, app_service)
     details = app_service_details(subscription, app_service)
     app_service_file_output(subscription, details)
-    output_details(details)
+    output_details(summary_app(details))
   end
 
-  def output_all_app_services(subscription)
+  def output_app_services_and_databases(subscription)
     all_app_services(subscription).map do |app_service|
       get_details_and_output(subscription, app_service)
     end
+    list_and_output_all_databases(subscription)
   end
 
   def output_app_service(subscription, name)
@@ -179,7 +280,9 @@ class Cli
 
   def output_usage
     puts <<~USAGE
-      Retrieve information from Azure for App Service's and their Service Plans.
+      Retrieve information from Azure for App Service's, their Service Plans
+      and several types of Azure Databases including:
+      #{database_types_pretty}
 
       Usage:
 
@@ -189,22 +292,29 @@ class Cli
       az account set --subscription <SUBSCRIPTION_ID>
       export AZURE_TOKEN=$(az account get-access-token --query accessToken --output tsv)
 
-      Retrieve all App Service's in a given subscription:
+      Retrieve all App Service's and Databases in a given subscription:
       #{$PROGRAM_NAME} <subscription-id>
 
       Retrieve a single App Service's:
       #{$PROGRAM_NAME} <subscription-id> <app-service-name>
 
-      The output will include a summary to standard output as well as a file written
+      The output will include a summary to standard output as well as files written
       to the new directory in the current working directory in the format of:
-      ./subscription_<subscription-id>_app_services/<app-service-name>_<app-service-resource-group-name>.json
+      ./subscription_<subscription-id>/app_services/<app-service-name>_<app-service-resource-group-name>.json
+      ./subscription_<subscription-id>/databases/<database-type>.json
+
+      Required Azure API Access
+
+      The following role includes all of the needed permissions to run this script:
+
+      #{required_role_json}
     USAGE
   end
 
   def execute
     case ARGV.length
     when 1
-      output_all_app_services(ARGV[0])
+      output_app_services_and_databases(ARGV[0])
     when 2
       output_app_service(ARGV[0], ARGV[1])
     else
