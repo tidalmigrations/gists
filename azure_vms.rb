@@ -266,7 +266,9 @@ module AzureVM
         az_id: vm["id"],
         state: vm.dig("properties", "provisioningState"), 
         custom_fields: custom_fields_from_tags,
-        environment: environment
+        environment: {
+          name: environment
+        }
       }
     end
   end
@@ -357,7 +359,9 @@ module AzureVM
               az_vmSize: vm[:vm_size],
               state: vm[:state]
             }.merge(vm[:custom_fields]),
-            environment: vm[:environment],
+            environment: {
+              name: vm[:environment],
+            },
             ram_allocated_gb: size_details['memoryInMB'] ? (size_details['memoryInMB'] / 1024).to_i : nil,
             cpu_count: size_details['numberOfCores'] || "N/A",
             storage_allocated_gb: vm[:storage_allocated_gb] || "N/A",
@@ -414,7 +418,9 @@ module AzureAppService
       operating_system: app_service.dig("properties", "linuxFxVersion") ? "Linux" : "Windows",
       tags: app_service["tags"],
       fqdn: fqdn,
-      environment: environment,
+      environment: {
+        name: environment
+      },
       custom_fields: {
         siteId: app_service["id"],
         state: app_service.dig("properties", "state"),
