@@ -148,7 +148,7 @@ module AzureDBServer
     db_server[:host_name] = server["name"] || server[:name]
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
     db_server[:fqdn] = fqdn if fqdn
-    db_server[:environment] = extract_environment_tag(server["tags"]) if server["tags"]
+    db_server[:environment] = { name: extract_environment_tag(server["tags"]) } if server["tags"]
     custom_fields.merge!(extract_azure_tags_as_custom_fields(server["tags"])) if server["tags"]
     db_server[:custom_fields] = custom_fields
     db_server
@@ -166,7 +166,7 @@ module AzureDBServer
     elastic_pool[:host_name] = pool["name"] || pool[:name]
     fqdn = properties.fetch("fullyQualifiedDomainName", nil)
     elastic_pool[:fqdn] = fqdn if fqdn
-    elastic_pool[:environment] = extract_environment_tag(pool["tags"]) if pool["tags"]
+    elastic_pool[:environment] = { name: extract_environment_tag(pool["tags"]) } if pool["tags"]
     custom_fields.merge!(extract_azure_tags_as_custom_fields(pool["tags"])) if pool["tags"]
     elastic_pool[:custom_fields] = custom_fields
     elastic_pool
@@ -416,7 +416,7 @@ class DBFetcher
       db_object[:description] = "Azure SQL Database"
       db_object[:server] = { host_name: db[:server_name] }
       db_object[:server_id] = db[:server_id]
-      db_object[:environment] = environment if environment
+      db_object[:environment] = { name: environment } if environment
       db_object[:custom_fields] = custom_fields
 
       # STDERR.puts "## Transformed database: #{db_object.inspect}"
