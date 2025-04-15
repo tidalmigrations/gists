@@ -8,14 +8,14 @@ $body = @{
     "password" = $password
 }
 
-$access_token = Invoke-WebRequest -Uri "https://${subdomain}.tidalmg.com/api/v1/authenticate" -Method "Post" `
+$access_token = Invoke-WebRequest -Uri "https://${subdomain}.tidal.cloud/api/v1/authenticate" -Method "Post" `
                                   -Body ($body|ConvertTo-Json) -ContentType "application/json" `
                 | ConvertFrom-Json `
                 | Select -ExpandProperty access_token
 
 $auth = @{"Authorization" = "Bearer ${access_token}";}
 
-$servers = Invoke-WebRequest -Uri "https://${subdomain}.tidalmg.com/api/v1/move_groups/${move_group_id}" -Method "Get" `
+$servers = Invoke-WebRequest -Uri "https://${subdomain}.tidal.cloud/api/v1/move_groups/${move_group_id}" -Method "Get" `
                              -Headers $auth -ContentType "application/json" `
            | ConvertFrom-Json `
            | Select-Object -Expand servers `
