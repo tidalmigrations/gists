@@ -67,8 +67,9 @@ module HttpUtil
   end
 
   class Error400 < StandardError
-    def message
-      "Either required headers are missing or the body of the JSON is malformed."
+    def initialize(msg)
+      puts "Either required headers are missing or the body of the JSON is malformed."
+      super(msg)
     end
   end
 
