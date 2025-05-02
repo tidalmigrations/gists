@@ -120,6 +120,10 @@ module AzureMigrate
   def list_assessment_projects
     subscription = ENV.fetch("AZ_MIGRATE_SUBSCRIPTION", nil)
     resource_group = ENV.fetch("AZ_MIGRATE_RG", nil)
+
+    raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable." unless subscription
+    raise "Error missing AZ_MIGRATE_RG environment variable." unless resource_group
+
     version = "2020-05-01-preview"
 
     path = "https://management.azure.com/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/\
@@ -202,7 +206,7 @@ contact us at support@tidalcloud.com"
         path = "#{next_link}"
         next_response = basic_request(path:         path,
                                       query_params: query_params,
-                                      headers:      { "Authorization" => "Bearer #{get_token}" })
+                                      headers:      { "Authorization" => "Bearer #{token}" })
         loop_response = response_handler(api_name: "Azure Migrate", response: next_response)
         parsed_paylod = []
         loop_response["value"].each do |payload_server_value|
@@ -218,8 +222,11 @@ contact us at support@tidalcloud.com"
       "https://management.azure.com"
     end
 
-    def get_token
-      ENV.fetch("AZURE_TOKEN", nil)
+    def token
+      azure_token = ENV.fetch("AZURE_TOKEN", nil)
+      raise "Error missing AZURE_TOKEN environment variable" unless azure_token
+
+      azure_token
     end
 end
 
