@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
-require 'net/http'
-require 'json'
+require "net/http"
+require "json"
 
 module HttpUtil
   def basic_request(path:, query_params: {}, headers: {})
@@ -45,7 +45,7 @@ module HttpUtil
     http.request(request)
   end
 
-  def response_handler(api_name: "", response:, return_body: true, return_header: nil, return_response: false)
+  def response_handler(response:, api_name: "", return_body: true, return_header: nil, return_response: false)
     if %w[200 202 204].include? response.code
       if return_header
         response[return_header]
@@ -58,6 +58,10 @@ module HttpUtil
           JSON.parse response.body
         end
       end
+    elsif response.code == "404"
+      puts "Resource Not Found"
+      puts JSON.parse(response.body)["error"]["message"]
+      nil
     elsif response.code == "400"
       raise Error400, "Error accessing #{api_name} API: #{response.code}\n#{response.body}"
 
@@ -69,7 +73,7 @@ module HttpUtil
   class Error400 < StandardError
     def initialize(msg)
       puts "Either required headers are missing or the body of the JSON is malformed."
-      super(msg)
+      super
     end
   end
 
@@ -91,23 +95,17 @@ module AzureMigrate
   include JSON
 
   def pull_from_azure_migrate
-    if ENV["AZ_MIGRATE_SUBSCRIPTION"] == nil?
-      raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable."
-    end
-    if ENV["AZ_MIGRATE_RG"] == nil?
-      raise "Error missing AZ_MIGRATE_RG environment variable."
-    end
-    if ENV["AZ_MIGRATE_PROJECT"] == nil?
-      raise "Error missing AZ_MIGRATE_PROJECT environment variable."
-    end
+    raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable." if ENV["AZ_MIGRATE_SUBSCRIPTION"] == nil?
+    raise "Error missing AZ_MIGRATE_RG environment variable." if ENV["AZ_MIGRATE_RG"] == nil?
+    raise "Error missing AZ_MIGRATE_PROJECT environment variable." if ENV["AZ_MIGRATE_PROJECT"] == nil?
 
-    subscription = ENV["AZ_MIGRATE_SUBSCRIPTION"]
-    resource_group = ENV["AZ_MIGRATE_RG"]
-    project = ENV["AZ_MIGRATE_PROJECT"]
-    path = "/subscriptions/#{subscription}/"\
-      "resourceGroups/#{resource_group}/providers/"\
-      "Microsoft.Migrate/assessmentProjects/#{project}/"\
-      "machines"
+    subscription = ENV.fetch("AZ_MIGRATE_SUBSCRIPTION", nil)
+    resource_group = ENV.fetch("AZ_MIGRATE_RG", nil)
+    project = ENV.fetch("AZ_MIGRATE_PROJECT", nil)
+    path = "/subscriptions/#{subscription}/" \
+           "resourceGroups/#{resource_group}/providers/" \
+           "Microsoft.Migrate/assessmentProjects/#{project}/" \
+           "machines"
 
     version = "2020-05-01-preview"
     azure_api_request(
@@ -119,8 +117,8 @@ module AzureMigrate
   end
 
   def list_assessment_projects
-    subscription = ENV["AZ_MIGRATE_SUBSCRIPTION"]
-    resource_group = ENV["AZ_MIGRATE_RG"]
+    subscription = ENV.fetch("AZ_MIGRATE_SUBSCRIPTION", nil)
+    resource_group = ENV.fetch("AZ_MIGRATE_RG", nil)
     version = "2020-05-01-preview"
 
     path = "https://management.azure.com/subscriptions/#{subscription}/resourceGroups/#{resource_group}/providers/\
@@ -143,12 +141,12 @@ resource group\n#{subscription}: #{resource_group} \n\n"
   end
 
   def parse_result(result)
-    # TODO handle standard azure api errors and response
+    # TODO: handle standard azure api errors and response
     if result
       gb_adder = 0
       properties = result["properties"]
       properties["disks"].each do |_, disk_value|
-        gb_adder += disk_value['gigabytesAllocated']
+        gb_adder += disk_value["gigabytesAllocated"]
       end
       ram_allocated_gb = (properties["megabytesOfMemory"] / 1000).to_i
       ip_addresses = []
@@ -156,9 +154,9 @@ resource group\n#{subscription}: #{resource_group} \n\n"
       properties["networkAdapters"].each do |_, v|
         ip_addresses.push(*v["ipAddresses"])
       end
-      response = {
+      {
         host_name:              properties["displayName"],
-        ip_addresses:           ip_addresses.map{ |ip| { address: ip } },
+        ip_addresses:           ip_addresses.map { |ip| { address: ip } },
         description:            properties["description"],
         custom_fields:          {
           arm_id: properties["discoveryMachineArmId"], operating_system_type: properties["operatingSystemType"],
@@ -170,9 +168,9 @@ resource group\n#{subscription}: #{resource_group} \n\n"
         ram_allocated_gb:       ram_allocated_gb,
         storage_allocated_gb:   gb_adder.to_i,
         cpu_count:              properties["numberOfCores"],
-        virtualization_cluster: properties["datacenterManagementServerName"],
+        virtualization_cluster: properties["datacenterManagementServerName"]
       }
-      response
+
     else
       puts "Experienced an error when trying to parse the result from the Azure Migrate API. If the error persists, \
 contact us at support@tidalcloud.com"
@@ -190,14 +188,16 @@ contact us at support@tidalcloud.com"
                               headers:      { "Authorization" => "Bearer #{get_token}" })
 
       first_response = response_handler(api_name: "Azure Migrate", response: response)
-      next_link = first_response['nextLink']
+      return unless first_response
+
+      next_link = first_response["nextLink"]
       parsed_values = []
       first_response["value"].each do |server_value|
         parsed_values.push(parse_result(server_value))
       end
       responses.push(*parsed_values)
 
-      while next_link != nil do
+      until next_link.nil?
         path = "#{next_link}"
         next_response = basic_request(path:         path,
                                       query_params: query_params,
@@ -208,7 +208,7 @@ contact us at support@tidalcloud.com"
           parsed_paylod.push(parse_result(payload_server_value))
         end
         responses.push(*parsed_paylod)
-        next_link = loop_response['nextLink']
+        next_link = loop_response["nextLink"]
       end
       puts "#{({ servers: responses }).to_json}"
     end
@@ -218,7 +218,7 @@ contact us at support@tidalcloud.com"
     end
 
     def get_token
-      ENV["AZURE_TOKEN"]
+      ENV.fetch("AZURE_TOKEN", nil)
     end
 end
 
