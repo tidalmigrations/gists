@@ -136,9 +136,9 @@ Microsoft.Migrate/assessmentProjects?api-version=#{version}"
       }
     )
     response = response_handler(api_name: "Azure Migrate", response: assessments)
-    assessment_projects = []
-    response["value"].each do |project|
-      assessment_projects.push(project["name"])
+
+    assessment_projects = response["value"].map do |project|
+      project["name"]
     end
     puts "Listed assessment projects in in the follow subscription:\
 resource group\n#{subscription}: #{resource_group} \n\n"
@@ -150,15 +150,13 @@ resource group\n#{subscription}: #{resource_group} \n\n"
     if result
       gb_adder = 0
       properties = result["properties"]
-      properties["disks"].each do |_, disk_value|
-        gb_adder += disk_value["gigabytesAllocated"]
-      end
+      properties["disks"].values.sum
       ram_allocated_gb = (properties["megabytesOfMemory"] / 1000).to_i
-      ip_addresses = []
 
-      properties["networkAdapters"].each do |_, v|
-        ip_addresses.push(*v["ipAddresses"])
+      ip_addresses = properties["networkAdapters"].values.map do |ip|
+        ip["ipAddresses"]
       end
+
       {
         host_name:              properties["displayName"],
         ip_addresses:           ip_addresses.map { |ip| { address: ip } },
@@ -196,26 +194,23 @@ contact us at support@tidalcloud.com"
       return unless first_response
 
       next_link = first_response["nextLink"]
-      parsed_values = []
-      first_response["value"].each do |server_value|
-        parsed_values.push(parse_result(server_value))
-      end
+      parsed_values = first_response["value"].map(&:parse_result)
+
       responses.push(*parsed_values)
 
       until next_link.nil?
-        path = "#{next_link}"
+        path = next_link.to_s
         next_response = basic_request(path:         path,
                                       query_params: query_params,
                                       headers:      { "Authorization" => "Bearer #{token}" })
         loop_response = response_handler(api_name: "Azure Migrate", response: next_response)
-        parsed_paylod = []
-        loop_response["value"].each do |payload_server_value|
-          parsed_paylod.push(parse_result(payload_server_value))
-        end
+
+        parsed_paylod = loop_response["value"].map(&:parse_result)
+
         responses.push(*parsed_paylod)
         next_link = loop_response["nextLink"]
       end
-      puts "#{({ servers: responses }).to_json}"
+      puts ({ servers: responses }).to_json
     end
 
     def base_url
