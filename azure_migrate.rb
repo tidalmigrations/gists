@@ -95,13 +95,14 @@ module AzureMigrate
   include JSON
 
   def pull_from_azure_migrate
-    raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable." if ENV["AZ_MIGRATE_SUBSCRIPTION"] == nil?
-    raise "Error missing AZ_MIGRATE_RG environment variable." if ENV["AZ_MIGRATE_RG"] == nil?
-    raise "Error missing AZ_MIGRATE_PROJECT environment variable." if ENV["AZ_MIGRATE_PROJECT"] == nil?
-
     subscription = ENV.fetch("AZ_MIGRATE_SUBSCRIPTION", nil)
     resource_group = ENV.fetch("AZ_MIGRATE_RG", nil)
     project = ENV.fetch("AZ_MIGRATE_PROJECT", nil)
+
+    raise "Error missing AZ_MIGRATE_SUBSCRIPTION environment variable." unless subscription
+    raise "Error missing AZ_MIGRATE_RG environment variable." unless resource_group
+    raise "Error missing AZ_MIGRATE_PROJECT environment variable." unless project
+
     path = "/subscriptions/#{subscription}/" \
            "resourceGroups/#{resource_group}/providers/" \
            "Microsoft.Migrate/assessmentProjects/#{project}/" \
@@ -127,7 +128,7 @@ Microsoft.Migrate/assessmentProjects?api-version=#{version}"
       path:         path,
       query_params: { "api-version": version },
       headers:      {
-        "Authorization" => "Bearer #{get_token}"
+        "Authorization" => "Bearer #{token}"
       }
     )
     response = response_handler(api_name: "Azure Migrate", response: assessments)
@@ -185,7 +186,7 @@ contact us at support@tidalcloud.com"
                               path:         "#{base_url}#{path}",
                               body:         nil,
                               query_params: query_params,
-                              headers:      { "Authorization" => "Bearer #{get_token}" })
+                              headers:      { "Authorization" => "Bearer #{token}" })
 
       first_response = response_handler(api_name: "Azure Migrate", response: response)
       return unless first_response
