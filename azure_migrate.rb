@@ -148,9 +148,9 @@ resource group\n#{subscription}: #{resource_group} \n\n"
   def parse_result(result)
     # TODO: handle standard azure api errors and response
     if result
-      gb_adder = 0
+
       properties = result["properties"]
-      properties["disks"].values.sum
+      gb_adder = properties["disks"].values.reduce(0) { |acc, value| acc + value["gigabytesAllocated"] }
       ram_allocated_gb = (properties["megabytesOfMemory"] / 1000).to_i
 
       ip_addresses = properties["networkAdapters"].values.map do |ip|
@@ -194,7 +194,8 @@ contact us at support@tidalcloud.com"
       return unless first_response
 
       next_link = first_response["nextLink"]
-      parsed_values = first_response["value"].map(&:parse_result)
+
+      parsed_values = first_response["value"].map { |value| parse_result(value) }
 
       responses.push(*parsed_values)
 
@@ -205,7 +206,7 @@ contact us at support@tidalcloud.com"
                                       headers:      { "Authorization" => "Bearer #{token}" })
         loop_response = response_handler(api_name: "Azure Migrate", response: next_response)
 
-        parsed_paylod = loop_response["value"].map(&:parse_result)
+        parsed_paylod = loop_response["value"].map { |value| parse_result(value) }
 
         responses.push(*parsed_paylod)
         next_link = loop_response["nextLink"]
